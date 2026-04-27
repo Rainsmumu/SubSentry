@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海缆故障传报系统</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  /* Alpine.js x-cloak: 在 JS 初始化前隐藏元素，防止闪烁 */
+  [x-cloak] { display: none !important; }
+  /* 深色主题覆盖 */
+  :root {
+    --green:  #10b981;
+    --red:    #ef4444;
+    --yellow: #f59e0b;
+    --blue:   #3b82f6;
+  }
+  body { background: #0f1117; color: #e2e8f0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .card  { background: #1a1d27; border: 1px solid #2e3347; border-radius: 10px; }
+  .input { background: #22263a; border: 1px solid #2e3347; color: #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; transition: border .2s; }
+  .input:focus { border-color: #3b82f6; }
+  .input-uniform { height: 40px; }
+  .btn-primary { background: #3b82f6; color: #fff; border-radius: 6px; padding: 8px 20px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background .2s; border: none; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-danger  { background: transparent; color: #ef4444; border: 1px solid #ef4444; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .btn-danger:hover { background: rgba(239,68,68,.1); }
+  .btn-ghost   { background: #22263a; color: #9ca3af; border: 1px solid #2e3347; border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+  .btn-ghost:hover { border-color: #3b82f6; color: #3b82f6; }
+  .tab-btn { padding: 7px 14px; border-radius: 6px 6px 0 0; font-size: 13px; cursor: pointer; border: 1px solid transparent; border-bottom: none; color: #6b7280; background: transparent; transition: all .2s; }
+  .tab-btn.active { background: #22263a; color: #e2e8f0; border-color: #2e3347; margin-bottom: -1px; }
+  .copy-area { font-family: "PingFang SC", "Microsoft YaHei", monospace; font-size: 13px; line-height: 1.7; white-space: pre-wrap; background: #22263a; border-radius: 6px; padding: 14px 16px; color: #cbd5e1; }
+  .impact-row-critical {
+    background: rgba(239,68,68,.04);
+  }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-broken  { background: rgba(239,68,68,.15);  color: #ef4444; }
+  .badge-primary { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .badge-backup  { background: rgba(59,130,246,.15); color: #60a5fa; }
+  .badge-suspect { background: rgba(168,85,247,.15); color: #a78bfa; }
+  .badge-normal  { background: rgba(16,185,129,.15); color: #10b981; }
+  .badge-ip      { background: rgba(16,185,129,.15);  color: #10b981; }
+  .badge-iepl    { background: rgba(245,158,11,.15);  color: #f59e0b; }
+
+  /* SVG 海缆线条动画 */
+  .cable-line { stroke-width: 3; fill: none; stroke-linecap: round; transition: stroke .4s, stroke-width .3s; cursor: pointer; }
+  .cable-line.normal { stroke: #10b981; }
+  .cable-line.broken { stroke: #ef4444; stroke-dasharray: 8 4; animation: dash 1s linear infinite; }
+  .cable-line:hover  { stroke-width: 5; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .landing-dot { fill: #3b82f6; }
+  .tooltip-box { position: absolute; background: #1a1d27; border: 1px solid #2e3347; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #e2e8f0; pointer-events: none; z-index: 50; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+
+  /* 滚动条美化 */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0f1117; }
+  ::-webkit-scrollbar-thumb { background: #2e3347; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ 顶部 Header ═══════════════ -->
+<div class="flex items-center gap-4 px-8 py-4 border-b border-gray-800" style="background:linear-gradient(135deg,#1e2235,#141824)">
+  <div style="font-size:24px">🛰️</div>
+  <div>
+    <div class="font-bold text-lg tracking-wide">海缆故障传报系统</div>
+    <div class="text-xs text-gray-500 mt-0.5">上海国际局</div>
+  </div>
+  <div class="ml-auto text-xs px-3 py-1 rounded-full" style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:#60a5fa">
+    8 条海缆段落
+  </div>
+</div>
+
+<!-- ═══════════════ 主体 ═══════════════ -->
+<div class="max-w-screen-xl mx-auto px-6 py-6" x-data="app()" x-init="init()">
+
+  <div class="grid gap-6" style="grid-template-columns: 420px 1fr">
+
+    <!-- ── 左侧：态势图 + 录入表单 ── -->
+    <div class="flex flex-col gap-5">
+
+      <!-- 态势图 -->
+      <div class="card p-4">
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>实时故障态势
+        </div>
+        <!-- SVG 示意图 -->
+        <div class="relative" style="user-select:none">
+          <svg id="cable-svg" viewBox="0 0 380 300" class="w-full" style="background:#12151f;border-radius:8px">
+
+            <!-- 海岸线示意 -->
+            <path d="M 80 0 Q 100 80 90 150 Q 85 220 100 300" stroke="#2e3347" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
+            <text x="50" y="16" font-size="9" fill="#4b5563" font-family="PingFang SC,Microsoft YaHei,sans-serif">中国大陆</text>
+            <text x="120" y="16" font-size="9" fill="#374151" font-family="PingFang SC,Microsoft YaHei,sans-serif">海洋</text>
+
+            <!-- 崇明登陆站 -->
+            <circle cx="88" cy="100" r="7" class="landing-dot"/>
+            <circle cx="88" cy="100" r="11" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.4"/>
+            <text x="18" y="97" font-size="10" fill="#93c5fd" font-weight="bold" font-family="PingFang SC,Microsoft YaHei,sans-serif">崇明</text>
+            <text x="18" y="109" font-size="9" fill="#4b5563" font-family="PingFang SC,Microsoft YaHei,sans-serif">登陆站</text>
+
+            <!-- 南汇登陆站 -->
+            <circle cx="88" cy="210" r="7" class="landing-dot"/>
+            <circle cx="88" cy="210" r="11" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.4"/>
+            <text x="18" y="207" font-size="10" fill="#93c5fd" font-weight="bold" font-family="PingFang SC,Microsoft YaHei,sans-serif">南汇</text>
+            <text x="18" y="219" font-size="9" fill="#4b5563" font-family="PingFang SC,Microsoft YaHei,sans-serif">登陆站</text>
+
+            <!-- 崇明出口海缆（6条）-->
+            <!-- TPE S1S  → 日本/美国方向（右上） -->
+            <path id="seg-TPE_S1S"   d="M 95 96  Q 200 60  340 40"  class="cable-line normal"
+                  @mouseenter="showTip($event,'TPE_S1S')"   @mouseleave="hideTip()"
+                  @click="selectCable('TPE_S1S')"/>
+            <text x="345" y="38"  font-size="9" fill="#6b7280" font-family="sans-serif">日/美</text>
+
+            <!-- TPE S4   → 台湾方向（右偏上） -->
+            <path id="seg-TPE_S4"    d="M 95 100 Q 200 85  340 80"  class="cable-line normal"
+                  @mouseenter="showTip($event,'TPE_S4')"    @mouseleave="hideTip()"
+                  @click="selectCable('TPE_S4')"/>
+            <text x="345" y="78"  font-size="9" fill="#6b7280" font-family="sans-serif">台/日</text>
+
+            <!-- APCN2 S3 → 香港/美国（右中偏上） -->
+            <path id="seg-APCN2_S3"  d="M 95 103 Q 200 108 340 115" class="cable-line normal"
+                  @mouseenter="showTip($event,'APCN2_S3')"  @mouseleave="hideTip()"
+                  @click="selectCable('APCN2_S3')"/>
+            <text x="345" y="113" font-size="9" fill="#6b7280" font-family="sans-serif">港/美</text>
+
+            <!-- APCN2 S4A→ 韩国/日本（右中） -->
+            <path id="seg-APCN2_S4A" d="M 95 107 Q 200 130 340 148" class="cable-line normal"
+                  @mouseenter="showTip($event,'APCN2_S4A')" @mouseleave="hideTip()"
+                  @click="selectCable('APCN2_S4A')"/>
+            <text x="345" y="147" font-size="9" fill="#6b7280" font-family="sans-serif">韩/日</text>
+
+            <!-- APG S3   → 韩国/日本（右中偏下） -->
+            <path id="seg-APG_S3"    d="M 95 109 Q 200 150 340 178" class="cable-line normal"
+                  @mouseenter="showTip($event,'APG_S3')"    @mouseleave="hideTip()"
+                  @click="selectCable('APG_S3')"/>
+            <text x="345" y="177" font-size="9" fill="#6b7280" font-family="sans-serif">韩/日</text>
+
+            <!-- NCP S1.1 → 日本/美国（右偏下往崇明） -->
+            <path id="seg-NCP_S1_1"  d="M 95 112 Q 200 165 340 200" class="cable-line normal"
+                  @mouseenter="showTip($event,'NCP_S1_1')"  @mouseleave="hideTip()"
+                  @click="selectCable('NCP_S1_1')"/>
+            <text x="345" y="199" font-size="9" fill="#6b7280" font-family="sans-serif">日/美</text>
+
+            <!-- 南汇出口海缆（2条）-->
+            <!-- APG S4   → 日本/新加坡 -->
+            <path id="seg-APG_S4"    d="M 95 206 Q 200 215 340 220" class="cable-line normal"
+                  @mouseenter="showTip($event,'APG_S4')"    @mouseleave="hideTip()"
+                  @click="selectCable('APG_S4')"/>
+            <text x="345" y="219" font-size="9" fill="#6b7280" font-family="sans-serif">日/新</text>
+
+            <!-- NCP S3   → 日本/美国 -->
+            <path id="seg-NCP_S3"    d="M 95 214 Q 200 240 340 255" class="cable-line normal"
+                  @mouseenter="showTip($event,'NCP_S3')"    @mouseleave="hideTip()"
+                  @click="selectCable('NCP_S3')"/>
+            <text x="345" y="254" font-size="9" fill="#6b7280" font-family="sans-serif">日/美</text>
+
+            <!-- 图例 -->
+            <line x1="16" y1="272" x2="40" y2="272" stroke="#10b981" stroke-width="2.5"/>
+            <text x="44" y="275" font-size="9" fill="#6b7280" font-family="PingFang SC,sans-serif">正常</text>
+            <line x1="80" y1="272" x2="104" y2="272" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="5 3"/>
+            <text x="108" y="275" font-size="9" fill="#6b7280" font-family="PingFang SC,sans-serif">中断</text>
+          </svg>
+
+          <!-- Tooltip -->
+          <div x-show="tooltip.visible" x-cloak
+               class="tooltip-box"
+               :style="`top:${tooltip.y}px;left:${tooltip.x}px`">
+            <div class="font-bold text-sm mb-1" x-text="tooltip.name"></div>
+            <div class="text-gray-400 text-xs" x-text="tooltip.route"></div>
+            <div class="text-gray-400 text-xs" x-text="tooltip.direction"></div>
+            <div class="mt-1">
+              <span :class="tooltip.status==='broken'?'badge badge-broken':'badge badge-normal'"
+                    x-text="tooltip.status==='broken'?'🔴 中断':'🟢 正常'"></span>
+              <span x-show="tooltip.fault_time" class="text-gray-500 text-xs ml-2" x-text="tooltip.fault_time"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 段落状态图例 -->
+        <div class="mt-3 flex flex-wrap gap-2">
+          <template x-for="c in cables" :key="c.id">
+            <span class="text-xs px-2 py-0.5 rounded cursor-pointer border"
+                  :class="c.status==='broken'
+                    ? 'border-red-800 bg-red-900/20 text-red-400'
+                    : 'border-gray-700 bg-gray-800/40 text-gray-400'"
+                  @click="selectCable(c.id)"
+                  x-text="`${c.cable} ${c.segment}`">
+            </span>
+          </template>
+        </div>
+      </div>
+
+      <!-- 故障录入表单 -->
+      <div class="card p-4">
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>故障录入
+        </div>
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">故障海缆段落 *</label>
+            <select x-model="form.cable_id" class="input input-uniform w-full">
+              <option value="">— 请选择 —</option>
+              <template x-for="c in cables" :key="c.id">
+                <option :value="c.id" x-text="`${c.cable} ${c.segment}`"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">中断时间 *</label>
+            <input x-model="form.fault_time" type="datetime-local" class="input input-uniform w-full">
+          </div>
+          <button class="btn-primary w-full" :disabled="loading || !form.cable_id || !form.fault_time"
+                  @click="submitFault()">
+            <span x-show="!loading">📡 生成通报</span>
+            <span x-show="loading">分析中…</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 故障时间线 -->
+      <div class="card p-4" x-show="events.length > 0">
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+          故障事件时间线 (<span x-text="events.length"></span>)
+          <span class="ml-auto text-gray-600 font-normal normal-case text-xs">点击查看通报</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <template x-for="ev in events" :key="ev.id">
+            <div class="flex items-center justify-between gap-2 p-2 rounded cursor-pointer transition-all"
+                 :style="result && result.event_id === ev.id
+                         ? 'background:#1e3a5f;border:1px solid #3b82f6'
+                         : 'background:#12151f;border:1px solid #2e3347'"
+                 @click="loadFaultReport(ev.id)">
+              <div>
+                <span class="text-red-400 font-semibold text-sm"
+                      x-text="cableLabel(ev.cable_id)"></span>
+                <span class="text-gray-500 text-xs ml-2" x-text="formatTime(ev.fault_time)"></span>
+              </div>
+              <button class="btn-danger" @click.stop="removeFault(ev.id)">解除</button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 右侧：通报输出 + 业务影响 ── -->
+    <div class="flex flex-col gap-5">
+
+      <!-- 空态提示 -->
+      <div x-show="!result" class="card p-12 text-center text-gray-600">
+        <div style="font-size:40px" class="mb-3">📡</div>
+        <div>在左侧选择故障海缆和时间，点击「生成通报」</div>
+      </div>
+
+      <!-- 通报文本 -->
+      <div class="card" x-show="result" x-cloak>
+        <div class="px-4 pt-4 pb-0">
+          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            通报文本
+            <span class="ml-auto text-gray-600 font-normal normal-case text-xs"
+                  x-text="result ? cableLabel(result.cable_id) + ' · ' + formatTime(result.fault_time) : ''"></span>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 px-4 border-b border-gray-800">
+          <button class="tab-btn" :class="reportTab==='first_email'&&'active'"   @click="reportTab='first_email'">首报·邮件</button>
+          <button class="tab-btn" :class="reportTab==='first_sms'&&'active'"     @click="reportTab='first_sms'">首报·短信</button>
+          <button class="tab-btn" :class="reportTab==='follow_email'&&'active'"  @click="reportTab='follow_email'">续报·邮件</button>
+          <button class="tab-btn" :class="reportTab==='follow_wechat'&&'active'" @click="reportTab='follow_wechat'">续报·微信</button>
+        </div>
+
+        <div class="p-4">
+          <div class="copy-area" x-text="result && result.reports[reportTab]"></div>
+          <div class="flex gap-2 mt-3">
+            <button class="btn-ghost" @click="copyText(result.reports[reportTab])">
+              <span x-text="copied ? '已复制' : '复制'"></span>
+            </button>
+            <span class="text-xs text-gray-600 self-center ml-1">点击复制后直接粘贴到邮件或微信</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 业务影响统计 -->
+      <div class="card p-4" x-show="result" x-cloak>
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-purple-500 inline-block"></span>业务影响统计
+        </div>
+
+        <!-- 汇总数字 -->
+        <div class="grid grid-cols-2 gap-3 mb-4" x-show="result">
+          <div class="p-3 rounded" style="background:#12151f;border:1px solid #2e3347">
+            <div class="text-xs text-gray-500 mb-1">IP带宽损失（中断）</div>
+            <div class="text-xl font-bold text-green-400" x-text="result ? formatGbps(result.summary.ip_loss_gbps) : '--'"></div>
+            <div class="text-xs text-gray-600 mt-0.5" x-text="result ? '上海落地 ' + formatGbps(result.summary.ip_loss_sh_gbps) : ''"></div>
+          </div>
+          <div class="p-3 rounded" style="background:#12151f;border:1px solid #2e3347">
+            <div class="text-xs text-gray-500 mb-1">IEPL专线中断（无保护/双断）</div>
+            <div class="text-xl font-bold text-yellow-400" x-text="result ? result.summary.iepl_broken + ' 条' : '--'"></div>
+            <div class="text-xs text-gray-600 mt-0.5" x-text="result ? '上海落地 ' + result.summary.iepl_broken_sh + ' 条' : ''"></div>
+          </div>
+        </div>
+
+        <!-- IEPL / IP 电路详情 Tabs -->
+        <div class="flex gap-1 border-b border-gray-800 mb-3">
+          <button class="tab-btn text-xs" :class="circuitTab==='iepl'&&'active'" @click="circuitTab='iepl'">
+            客户专线 IEPL (<span x-text="result ? result.iepl.length : 0"></span>)
+          </button>
+          <button class="tab-btn text-xs" :class="circuitTab==='ip'&&'active'" @click="circuitTab='ip'">
+            IP电路 (<span x-text="result ? result.ip.length : 0"></span>)
+          </button>
+        </div>
+
+        <!-- 电路表格 -->
+        <div x-show="result && (circuitTab==='iepl' ? result.iepl : result.ip).length === 0"
+             class="text-center text-gray-600 py-6 text-sm">暂无受影响电路</div>
+
+        <div class="overflow-x-auto" x-show="result">
+          <table class="w-full text-xs" style="border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid #2e3347">
+                <th class="text-left text-gray-500 py-2 pr-2 font-medium">#</th>
+                <th class="text-left text-gray-500 py-2 pr-2 font-medium">影响类型</th>
+                <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户名称</th>
+                <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
+                <th class="text-left text-gray-500 py-2 pr-2 font-medium">A端</th>
+                <th class="text-left text-gray-500 py-2 pr-2 font-medium">Z端</th>
+                <th class="text-left text-gray-500 py-2 pr-3 font-medium">带宽</th>
+                <th class="text-left text-gray-500 py-2 font-medium">第一路由</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(c, i) in (circuitTab==='iepl' ? result.iepl : result.ip)" :key="c.circuit_id + '_' + i">
+                <tr :class="c.is_broken ? 'impact-row-critical' : ''" style="border-bottom:1px solid #1e2132">
+                  <td class="py-2 pr-2 text-gray-600" x-text="i+1"></td>
+                  <td class="py-2 pr-2">
+                    <span :class="impactBadgeClass(c.impact_status)" class="badge"
+                          x-text="c.impact_status"></span>
+                    <span x-show="c.is_shanghai" class="badge ml-1" style="background:rgba(6,182,212,.15);color:#22d3ee">沪</span>
+                  </td>
+                  <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
+                  <td class="py-2 pr-2 text-cyan-200 font-medium" x-text="c.circuit_id || '—'"></td>
+                  <td class="py-2 pr-2 text-gray-400" x-text="c.site_a"></td>
+                  <td class="py-2 pr-2 text-gray-400" x-text="c.site_b"></td>
+                  <td class="py-2 pr-3 font-semibold text-yellow-400" x-text="c.bandwidth"></td>
+                  <td class="py-2 text-gray-500" x-text="c.route1"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 下载 Excel -->
+        <div class="mt-4 flex items-center gap-3">
+          <button class="btn-primary" @click="downloadExcel()" x-show="result">
+            📥 下载业务影响统计表 (.xlsx)
+          </button>
+          <span class="text-xs text-gray-600">续报邮件附件</span>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- end grid -->
+</div><!-- end main -->
+
+
+<script>
+function app() {
+  return {
+    // 状态
+    cables: [],
+    events: [],
+    result: null,
+    loading: false,
+    copied: false,
+    reportTab: 'first_email',
+    circuitTab: 'iepl',
+    tooltip: { visible: false, x: 0, y: 0, name: '', route: '', direction: '', status: 'normal', fault_time: '' },
+    form: { cable_id: '', fault_time: '' },
+
+    // ── 初始化 ──────────────────────────────────────────────────────
+    async init() {
+      await this.loadState();
+      // 默认时间：本地当前时间（避免 toISOString() 带来的时区偏移）
+      this.form.fault_time = this.nowLocalInputValue();
+    },
+
+    async loadState() {
+      const res  = await fetch('/api/state');
+      const data = await res.json();
+      this.events = data.events || [];
+      // 加载海缆列表
+      const res2  = await fetch('/api/cables');
+      this.cables = await res2.json();
+      this.syncSvg();
+    },
+
+    // ── 故障录入 ────────────────────────────────────────────────────
+    async submitFault() {
+      if (!this.form.cable_id || !this.form.fault_time) return;
+      this.loading = true;
+      try {
+        const res = await fetch('/api/fault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cable_id: this.form.cable_id, fault_time: this.form.fault_time }),
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        this.result = data;
+        this.events  = data.events || [];
+        this.cables  = data.cables.map(s => {
+          const info = this.cables.find(c => c.id === s.id) || {};
+          return { ...info, ...s };
+        });
+        // 重新拉一次完整 cables 信息（含 label 等）
+        const cablesRes = await fetch('/api/cables');
+        this.cables = await cablesRes.json();
+        this.syncSvg();
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // ── 解除故障 ────────────────────────────────────────────────────
+    async removeFault(eventId) {
+      const res  = await fetch(`/api/fault/${eventId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      this.events = data.events || [];
+      // 更新 cables 状态
+      const cablesRes = await fetch('/api/cables');
+      this.cables = await cablesRes.json();
+      this.syncSvg();
+      // 如果当前结果的海缆已被解除，清空结果
+      if (this.result) {
+        const stillExists = this.events.find(e =>
+          e.cable_id === this.result.cable_id && e.fault_time === this.result.fault_time
+        );
+        if (!stillExists) this.result = null;
+      }
+    },
+
+    // ── 加载指定故障的通报 ──────────────────────────────────────────────
+    async loadFaultReport(eventId) {
+      this.loading = true;
+      try {
+        const url = `/api/analysis?event_id=${encodeURIComponent(eventId)}`;
+        console.log('Loading fault report:', url);
+        const res = await fetch(url);
+        const data = await res.json();
+        console.log('Received data:', {
+          cable_id: data.cable_id,
+          broken_ids: data.broken_ids,
+          iepl_count: data.iepl?.length,
+          ip_count: data.ip?.length
+        });
+        if (data.error) { alert(data.error); return; }
+        data.event_id = eventId;  // 添加 event_id 用于高亮
+        this.result = data;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // ── SVG 态势图同步 ──────────────────────────────────────────────
+    syncSvg() {
+      this.cables.forEach(c => {
+        const el = document.getElementById('seg-' + c.id);
+        if (!el) return;
+        el.classList.remove('normal', 'broken');
+        el.classList.add(c.status === 'broken' ? 'broken' : 'normal');
+      });
+    },
+
+    selectCable(id) {
+      this.form.cable_id = id;
+    },
+
+    // ── Tooltip ─────────────────────────────────────────────────────
+    showTip(event, cableId) {
+      const cable = this.cables.find(c => c.id === cableId);
+      if (!cable) return;
+      const svgRect = document.getElementById('cable-svg').getBoundingClientRect();
+      const containerRect = event.target.closest('.relative').getBoundingClientRect();
+      const x = event.clientX - containerRect.left + 10;
+      const y = event.clientY - containerRect.top  + 10;
+      const ev = this.events.find(e => e.cable_id === cableId);
+      this.tooltip = {
+        visible: true, x, y,
+        name: `${cable.cable} 海缆 ${cable.segment} 段`,
+        route: `路由：${cable.route_desc || ''}`,
+        direction: `方向：${cable.direction || ''}方向`,
+        status: cable.status,
+        fault_time: ev ? this.formatTime(ev.fault_time) : '',
+      };
+    },
+
+    hideTip() { this.tooltip.visible = false; },
+
+    // ── 复制 ────────────────────────────────────────────────────────
+    async copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        this.copied = true;
+        setTimeout(() => this.copied = false, 2000);
+      } catch {
+        // 降级方案
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        this.copied = true;
+        setTimeout(() => this.copied = false, 2000);
+      }
+    },
+
+    // ── 下载 Excel ──────────────────────────────────────────────────
+    downloadExcel() {
+      if (!this.result) return;
+      const query = this.result.event_id
+        ? `event_id=${encodeURIComponent(this.result.event_id)}`
+        : `cable_id=${encodeURIComponent(this.result.cable_id)}&fault_time=${encodeURIComponent(this.result.fault_time)}`;
+      const url = `/api/download?${query}`;
+      const a = document.createElement('a'); a.href = url; a.click();
+    },
+
+    nowLocalInputValue() {
+      const d = new Date();
+      d.setSeconds(0, 0);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${day}T${hh}:${mm}`;
+    },
+
+    // ── 工具函数 ─────────────────────────────────────────────────────
+    cableLabel(id) {
+      const c = this.cables.find(x => x.id === id);
+      return c ? `${c.cable} ${c.segment}` : id;
+    },
+
+    formatTime(t) {
+      if (!t) return '';
+      const d = new Date(t.replace('T', ' '));
+      if (isNaN(d)) return t;
+      return `${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    },
+
+    formatGbps(v) {
+      if (v === undefined || v === null) return '--';
+      if (v === 0) return '0G';
+      if (v === Math.floor(v)) return v + 'G';
+      // 去掉末尾无意义零
+      return parseFloat(v.toFixed(4)) + 'G';
+    },
+
+    impactBadgeClass(status) {
+      const map = {
+        '无保护':   'badge-broken',
+        '主备双断':  'badge-broken',
+        '主用':     'badge-primary',
+        '备用':     'badge-backup',
+        '疑似':     'badge-suspect',
+      };
+      return map[status] || 'badge-normal';
+    },
+  };
+}
+</script>
+</body>
+</html>

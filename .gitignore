@@ -1,0 +1,26 @@
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS and editor files
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Runtime state
+data/fault_state.json
+
+# Local business data and generated Excel reports
+*.xlsx
+*.xls
+~$*
+.~*
+
+# Packaging artifacts
+deploy/
+wheels/
+*.zip
+*.tar.gz
