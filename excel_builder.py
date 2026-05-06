@@ -8,6 +8,8 @@ excel_builder.py — 国际海缆故障影响业务统计表生成
   Row 4+: IEPL 数据行，上海落地优先，按带宽从大到小排序
 """
 
+from __future__ import annotations
+
 import io
 from datetime import datetime
 

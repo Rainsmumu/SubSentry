@@ -5,6 +5,8 @@ cable_config.py — 海缆段落硬编码配置
 以及路由字段关键字匹配规则（用于从电路表中识别哪些路由属于哪条段落）。
 """
 
+from __future__ import annotations
+
 # 8 条海缆段落配置
 # id: 系统内唯一标识符
 # cable: 海缆名称（通报中使用）

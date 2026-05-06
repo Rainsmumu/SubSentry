@@ -12,6 +12,8 @@ circuit_analyzer.py — 电路影响分析引擎
   疑似     — 路由写法模糊，无法确定是否受影响（需人工确认）
 """
 
+from __future__ import annotations
+
 import os
 import re
 import openpyxl

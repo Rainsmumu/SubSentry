@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>海缆故障传报系统</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/tailwindcss.js') }}"></script>
+<script defer src="{{ url_for('static', filename='vendor/alpine.min.js') }}"></script>
 <style>
   /* Alpine.js x-cloak: 在 JS 初始化前隐藏元素，防止闪烁 */
   [x-cloak] { display: none !important; }

@@ -6,6 +6,8 @@ Flask Web 服务入口
 访问：http://localhost:8080
 """
 
+from __future__ import annotations
+
 import json
 import os
 import uuid

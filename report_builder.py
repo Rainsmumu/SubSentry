@@ -8,6 +8,8 @@ report_builder.py — 通报文本生成
   - 续报微信
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from cable_config import CABLE_BY_ID
 from circuit_analyzer import format_gbps

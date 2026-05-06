@@ -21,6 +21,7 @@ data/fault_state.json
 
 # Packaging artifacts
 deploy/
+release/
 wheels/
 *.zip
 *.tar.gz
