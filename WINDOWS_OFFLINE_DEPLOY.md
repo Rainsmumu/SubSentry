@@ -17,6 +17,7 @@ SubSentry/
 ├── circuit_analyzer.py
 ├── excel_builder.py
 ├── report_builder.py
+├── deploy_check.py
 ├── requirements.txt
 ├── install_offline_deps.bat
 ├── check_env.bat
@@ -35,7 +36,7 @@ SubSentry/
 
 1. 把整个 `SubSentry` 文件夹复制到 Windows 电脑。
 2. 确认 `金桥机房电路表.xlsx` 位于 `SubSentry` 根目录。
-3. 双击运行 `install_offline_deps.bat`。
+3. 双击运行 `install_offline_deps.bat`。脚本会在当前目录创建本地 `.venv`，不会改动系统 Python 环境。
 4. 双击运行 `check_env.bat`。
 5. 双击运行 `start.bat`。
 6. 浏览器访问 `http://127.0.0.1:8080`。
@@ -97,3 +98,7 @@ install_offline_deps.bat
 ```
 
 如果仍失败，说明 `wheels/` 离线依赖包不完整。
+
+### 出现 `'raise' 不是内部或外部命令`
+
+这是旧版部署脚本在 Windows CMD 中解析 `python -c` 命令时触发的问题。请使用 `v2026.05.06-windows-offline-r2` 或更新版本。

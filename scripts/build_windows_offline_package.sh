@@ -22,6 +22,7 @@ copy_item cable_config.py
 copy_item circuit_analyzer.py
 copy_item excel_builder.py
 copy_item report_builder.py
+copy_item deploy_check.py
 copy_item requirements.txt
 copy_item README.md
 copy_item WINDOWS_OFFLINE_DEPLOY.md

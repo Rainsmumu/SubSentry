@@ -2,23 +2,19 @@
 setlocal
 cd /d "%~dp0"
 
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 8) else 1)" >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Python 3.8 or newer is required.
-  echo Current Python:
-  python --version
-  pause
-  exit /b 1
+if exist ".venv\Scripts\python.exe" (
+  set "PYTHON_EXE=.venv\Scripts\python.exe"
+) else (
+  set "PYTHON_EXE=python"
 )
 
-if not exist "金桥机房电路表.xlsx" (
-  echo [ERROR] Missing data file: 金桥机房电路表.xlsx
-  echo Please put it in this folder before starting SubSentry.
+"%PYTHON_EXE%" deploy_check.py --mode start
+if errorlevel 1 (
   pause
   exit /b 1
 )
 
 echo Starting SubSentry at http://127.0.0.1:8080
 echo For LAN access, open http://THIS_COMPUTER_IP:8080 after allowing Windows Firewall.
-python app.py
+"%PYTHON_EXE%" app.py
 pause
