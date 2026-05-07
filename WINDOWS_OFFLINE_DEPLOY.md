@@ -102,3 +102,7 @@ install_offline_deps.bat
 ### 出现 `'raise' 不是内部或外部命令`
 
 这是旧版部署脚本在 Windows CMD 中解析 `python -c` 命令时触发的问题。请使用 `v2026.05.06-windows-offline-r2` 或更新版本。
+
+### Python 3.9 提示缺少 `importlib-metadata`
+
+这是 Python 3.9 使用 Flask 2.3 时需要的条件依赖。请使用 `v2026.05.06-windows-offline-r3` 或更新版本。

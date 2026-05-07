@@ -6,6 +6,25 @@ VERSION="${1:-$(date +%Y.%m.%d)-windows-offline}"
 OUT_DIR="$ROOT/release/SubSentry_${VERSION}"
 ZIP_FILE="$ROOT/release/SubSentry_${VERSION}.zip"
 
+ensure_wheels() {
+  mkdir -p "$ROOT/wheels"
+  for pyver in 38 39 310 311 312 313; do
+    python3 -m pip download -r "$ROOT/requirements.txt" -d "$ROOT/wheels" \
+      --only-binary=:all: --platform win_amd64 --implementation cp \
+      --python-version "$pyver" --trusted-host pypi.org \
+      --trusted-host files.pythonhosted.org >/dev/null
+  done
+
+  # pip evaluates environment markers on the build machine. These are needed on
+  # Windows/Python 3.8-3.9 even if the package builder runs on macOS.
+  python3 -m pip download importlib-metadata==6.8.0 zipp==3.20.2 colorama==0.4.6 \
+    -d "$ROOT/wheels" --only-binary=:all: --platform win_amd64 \
+    --implementation cp --python-version 39 --trusted-host pypi.org \
+    --trusted-host files.pythonhosted.org >/dev/null
+}
+
+ensure_wheels
+
 rm -rf "$OUT_DIR" "$ZIP_FILE"
 mkdir -p "$OUT_DIR/data"
 
