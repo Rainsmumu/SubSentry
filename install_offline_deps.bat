@@ -9,17 +9,17 @@ if not exist "wheels" (
   exit /b 1
 )
 
-python -c "import sys; sys.exit(0 if sys.version_info[0] == 3 and sys.version_info[1] >= 8 else 1)" >nul 2>nul
-if errorlevel 1 (
+call resolve_python.bat
+if not defined SUBSENTRY_PYTHON (
   echo [ERROR] Python 3.8 or newer is required.
-  python --version
+  echo If this computer only has Python 3.6, run install_python_312.bat first.
   pause
   exit /b 1
 )
 
 if not exist ".venv\Scripts\python.exe" (
   echo Creating local virtual environment: .venv
-  python -m venv .venv
+  %SUBSENTRY_PYTHON% -m venv .venv
   if errorlevel 1 (
     echo [ERROR] Failed to create .venv.
     pause

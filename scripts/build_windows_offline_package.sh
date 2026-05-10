@@ -46,11 +46,14 @@ copy_item requirements.txt
 copy_item README.md
 copy_item WINDOWS_OFFLINE_DEPLOY.md
 copy_item install_offline_deps.bat
+copy_item install_python_312.bat
 copy_item check_env.bat
 copy_item start.bat
 copy_item stop_subsentry.bat
+copy_item resolve_python.bat
 copy_item templates
 copy_item static
+copy_item python-installer
 copy_item "海缆路由图"
 copy_item "金桥机房电路表-数据源说明.md"
 

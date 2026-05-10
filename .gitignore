@@ -23,5 +23,6 @@ data/fault_state.json
 deploy/
 release/
 wheels/
+python-installer/
 *.zip
 *.tar.gz

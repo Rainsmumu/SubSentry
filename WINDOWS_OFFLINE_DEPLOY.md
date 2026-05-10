@@ -19,10 +19,14 @@ SubSentry/
 ├── report_builder.py
 ├── deploy_check.py
 ├── requirements.txt
+├── install_python_312.bat
 ├── install_offline_deps.bat
 ├── check_env.bat
 ├── start.bat
 ├── stop_subsentry.bat
+├── resolve_python.bat
+├── python-installer/
+│   └── python-3.12.10-amd64.exe
 ├── templates/
 ├── static/
 │   └── vendor/
@@ -36,10 +40,11 @@ SubSentry/
 
 1. 把整个 `SubSentry` 文件夹复制到 Windows 电脑。
 2. 确认 `金桥机房电路表.xlsx` 位于 `SubSentry` 根目录。
-3. 双击运行 `install_offline_deps.bat`。脚本会在当前目录创建本地 `.venv`，不会改动系统 Python 环境。
-4. 双击运行 `check_env.bat`。
-5. 双击运行 `start.bat`。
-6. 浏览器访问 `http://127.0.0.1:8080`。
+3. 如果电脑只有 Python 3.6，先双击运行 `install_python_312.bat`。
+4. 双击运行 `install_offline_deps.bat`。脚本会在当前目录创建本地 `.venv`，不会改动系统 Python 环境。
+5. 双击运行 `check_env.bat`。
+6. 双击运行 `start.bat`。
+7. 浏览器访问 `http://127.0.0.1:8080`。
 
 ## 局域网访问
 
@@ -77,6 +82,12 @@ python --version
 ```
 
 如果低于 3.8，需要先安装更高版本 Python，或更换电脑。
+
+本发布包内置 Python 3.12.10 Windows 64 位安装程序。电脑只有 Python 3.6 时，先运行：
+
+```bat
+install_python_312.bat
+```
 
 ### 页面没有样式或按钮无反应
 
