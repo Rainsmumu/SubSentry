@@ -5,11 +5,14 @@ circuit_analyzer.py — 电路影响分析引擎
 根据当前故障海缆集合判断每条电路的影响状态。
 
 影响分类：
-  无保护   — 单腿且该腿已断，或所有腿均已断（业务中断）
+  无保护   — 单腿电路且该腿已断（业务中断）
   主备双断  — 多腿电路所有路由均已断（业务中断）
-  主用受影响 — 第一路由断但有存活备用（业务通过备用存活）
-  备用受影响 — 第一路由存活但某备用路由断（保护能力降低）
-  疑似     — 路由写法模糊，无法确定是否受影响（需人工确认）
+  主用     — 第一路由断但有存活备用（业务通过备用存活）
+  备用     — 第一路由存活但某备用路由断（保护能力降低）
+
+说明：路由字段来自槽路表的「第一路由/第二路由/第三路由/第四路由」四列，
+均为实际路由腿。以前误把第四路由当作"当前路由(current_route)"并只检查它，
+现已修正为把四条路由都作为并列路由腿处理。
 """
 
 from __future__ import annotations
@@ -17,18 +20,19 @@ from __future__ import annotations
 import os
 import re
 import openpyxl
-from cable_config import match_route_to_cable, CABLE_BY_ID
+from cable_config import match_route_to_cable_ids, CABLE_BY_ID
 
 # 金桥机房电路表列索引（0-based）
+# route1..route4 分别对应槽路表的「第一路由/第二路由/第三路由/第四路由」
 _COL = {
     "site_a":      1,
     "site_b":      10,
     "customer":    12,
     "circuit_id":  22,
-    "route1":      26,
-    "route2":      27,
-    "route3":      28,
-    "current_route": 29,  # 新增：当前路由（实际运行路由）
+    "route1":      26,   # 第一路由（主用）
+    "route2":      27,   # 第二路由
+    "route3":      28,   # 第三路由
+    "route4":      29,   # 第四路由（并列路由腿，非"当前路由"）
     "bandwidth":   34,
     "type":        38,
     "status":      90,
@@ -41,11 +45,10 @@ _VALID_TYPES = {"IP", "IEPL", "IPLC"}
 _NORMALIZE_TYPE = {"IPLC": "IEPL"}
 
 # 影响状态常量
-STATUS_NO_PROTECT   = "无保护"      # 业务中断（单腿或全断）
+STATUS_NO_PROTECT   = "无保护"      # 业务中断（单腿断）
 STATUS_DUAL_BREAK   = "主备双断"    # 业务中断（多腿全断）
 STATUS_PRIMARY      = "主用"        # 主用受影响（业务通过备用存活）
 STATUS_BACKUP       = "备用"        # 备用受影响（主用存活）
-STATUS_SUSPECT      = "疑似"        # 路由模糊，待人工确认
 
 # 中断状态集合（用于统计"中断"数量和带宽）
 BROKEN_STATUSES = {STATUS_NO_PROTECT, STATUS_DUAL_BREAK}
@@ -54,28 +57,40 @@ BROKEN_STATUSES = {STATUS_NO_PROTECT, STATUS_DUAL_BREAK}
 # ── 数据加载（带缓存，数据文件不变时只读一次）──────────────────────
 _data_cache: list | None = None
 _data_mtime: float = 0.0
+_data_path: str = ""
 _INTERNATIONAL_CIRCUIT_RE = re.compile(r"([A-Z0-9-]+(?:/[A-Z0-9-]+)+\s+[A-Z0-9-]+)", re.IGNORECASE)
 
 
 def _get_excel_path() -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, "金桥机房电路表.xlsx")
+    """当前使用的数据源路径（由 data_source 统一管理，支持网页上传）。"""
+    from data_source import get_current_path
+    return get_current_path()
+
+
+def invalidate_cache() -> None:
+    """清空电路数据缓存，使下次分析强制重新读取当前数据源。"""
+    global _data_cache, _data_mtime, _data_path
+    _data_cache = None
+    _data_mtime = 0.0
+    _data_path = ""
 
 
 def load_circuits(force_reload: bool = False) -> list[dict]:
     """
-    加载金桥机房电路表中所有"开通"的 IP/IEPL 电路。
+    加载金桥机房电路表中所有"开通"的 IP/IEPL/IPLC 电路。
     返回列表，每项为字典形式的电路信息。
     """
-    global _data_cache, _data_mtime
+    global _data_cache, _data_mtime, _data_path
 
     path = _get_excel_path()
     try:
         mtime = os.path.getmtime(path)
     except FileNotFoundError:
-        raise FileNotFoundError(f"找不到金桥机房电路表：{path}")
+        raise FileNotFoundError(f"找不到槽路表数据源：{path}")
 
-    if not force_reload and _data_cache is not None and mtime == _data_mtime:
+    # 数据源路径或修改时间变化时，缓存失效
+    if (not force_reload and _data_cache is not None
+            and mtime == _data_mtime and path == _data_path):
         return _data_cache
 
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
@@ -102,7 +117,7 @@ def load_circuits(force_reload: bool = False) -> list[dict]:
             "route1":    str(row[_COL["route1"]]    or "").strip(),
             "route2":    str(row[_COL["route2"]]    or "").strip(),
             "route3":    str(row[_COL["route3"]]    or "").strip(),
-            "current_route": str(row[_COL["current_route"]] or "").strip(),  # 当前路由
+            "route4":    str(row[_COL["route4"]]    or "").strip(),
             "bandwidth": str(row[_COL["bandwidth"]] or "").strip(),
             "type":      _NORMALIZE_TYPE.get(ctype, ctype),  # IPLC → IEPL
         })
@@ -110,6 +125,7 @@ def load_circuits(force_reload: bool = False) -> list[dict]:
     wb.close()
     _data_cache = circuits
     _data_mtime = mtime
+    _data_path = path
     return circuits
 
 
@@ -168,113 +184,58 @@ def format_gbps(gbps: float) -> str:
 
 # ── 核心分析逻辑 ────────────────────────────────────────────────────
 
-def _classify_circuit(
-    circuit: dict,
-    broken_ids: set[str],
-    ambiguous_active: dict[str, list[str]],
-) -> str | None:
+def _route_legs(circuit: dict) -> list[str]:
+    """返回该电路的所有非空路由腿（第一~第四路由）。"""
+    return [r for r in (
+        circuit.get("route1", ""),
+        circuit.get("route2", ""),
+        circuit.get("route3", ""),
+        circuit.get("route4", ""),
+    ) if r and r.strip()]
+
+
+def _leg_is_broken(route_str: str, broken_ids: set[str]) -> bool:
+    """
+    判断一条路由腿是否受影响：
+    该腿字段中包含的任一目标海缆段落命中了已断海缆集合即算断。
+    支持拼接海缆（如 "APCN2 S4A+PC1崇明"）——只要包含 "APCN2 S4A" 即命中。
+    """
+    matched = match_route_to_cable_ids(route_str)
+    return any(cid in broken_ids for cid in matched)
+
+
+def _classify_circuit(circuit: dict, broken_ids: set[str]) -> str | None:
     """
     对单条电路进行影响分类。
 
-    broken_ids: 当前已断海缆的 id 集合
-    ambiguous_active: {模糊关键字组合标识 -> [可能的 cable_id 列表]}，
-                      只包含其中至少有一个 id 在 broken_ids 中的模糊模式
+    broken_ids: 当前已断海缆的 id 集合。
+    路由腿取自第一~第四路由四列，均为并列路由腿；第一路由视为主用。
 
     返回影响状态字符串，或 None（不受影响，不纳入统计）。
     """
-    # 优先使用"当前路由"，如果为空则使用设计路由
-    current_route = circuit.get("current_route", "").strip()
-
-    if current_route:
-        # 有当前路由，只检查当前路由是否受影响
-        routes = [current_route]
-        is_temp_route = True
-    else:
-        # 无当前路由，使用设计路由
-        route_fields = [circuit["route1"], circuit["route2"], circuit["route3"]]
-        routes = [r for r in route_fields if r]
-        is_temp_route = False
-
+    routes = _route_legs(circuit)
     if not routes:
         return None
 
-    # 对每条路由做匹配
-    exact_matches: list[str | None] = []   # 精确匹配到的 cable_id（None 表示不在已断集合）
-    is_broken: list[bool] = []             # 该路由是否确认断路
-    is_ambiguous_broken: list[bool] = []   # 该路由是否疑似受影响（模糊写法）
-
-    for route in routes:
-        cable_id, ambiguous = match_route_to_cable(route)
-        if cable_id and cable_id in broken_ids:
-            exact_matches.append(cable_id)
-            is_broken.append(True)
-            is_ambiguous_broken.append(False)
-        elif ambiguous:
-            # 检查这个模糊路由是否可能命中已断海缆
-            # 用 match_route_to_cable 已返回 ambiguous=True，
-            # 需要再判断对应的 possible_ids 中是否有在 broken_ids 里的
-            possibly_broken = _ambiguous_route_possibly_broken(route, broken_ids)
-            exact_matches.append(None)
-            is_broken.append(False)
-            is_ambiguous_broken.append(possibly_broken)
-        else:
-            exact_matches.append(None)
-            is_broken.append(False)
-            is_ambiguous_broken.append(False)
+    is_broken = [_leg_is_broken(r, broken_ids) for r in routes]
 
     confirmed_broken = sum(is_broken)
-    ambiguous_broken = sum(is_ambiguous_broken)
-    confirmed_alive = sum(1 for b, a in zip(is_broken, is_ambiguous_broken) if not b and not a)
     total = len(routes)
 
     # 完全不受影响
-    if confirmed_broken == 0 and ambiguous_broken == 0:
+    if confirmed_broken == 0:
         return None
 
-    # 如果是临时路由且断了，直接标记为无保护（因为已经没有备用）
-    if is_temp_route and confirmed_broken > 0:
-        return STATUS_NO_PROTECT
-
-    # 全部确认断路
+    # 全部路由腿断路
     if confirmed_broken == total:
-        if total == 1:
-            return STATUS_NO_PROTECT
-        return STATUS_DUAL_BREAK
+        return STATUS_NO_PROTECT if total == 1 else STATUS_DUAL_BREAK
 
-    # 第一路由确认断，有存活备用
-    if is_broken[0] and confirmed_alive > 0:
+    # 第一路由（主用）断，尚有存活备用
+    if is_broken[0]:
         return STATUS_PRIMARY
 
-    # 第一路由存活，某备用确认断
-    if not is_broken[0] and not is_ambiguous_broken[0] and confirmed_broken > 0:
-        return STATUS_BACKUP
-
-    # 第一路由存活，仅有疑似断（模糊路由）
-    if not is_broken[0] and ambiguous_broken > 0 and confirmed_broken == 0:
-        return STATUS_SUSPECT
-
-    # 第一路由是疑似断
-    if is_ambiguous_broken[0]:
-        return STATUS_SUSPECT
-
-    # 兜底：有任何已断或疑似断路由
-    if confirmed_broken > 0:
-        return STATUS_PRIMARY
-    return STATUS_SUSPECT
-
-
-def _ambiguous_route_possibly_broken(route_str: str, broken_ids: set[str]) -> bool:
-    """
-    检查一个模糊路由字段（如 "TPE崇明"）对应的可能段落中，
-    是否有至少一个已在 broken_ids 中。
-    """
-    from cable_config import AMBIGUOUS_PATTERNS
-    upper = route_str.upper()
-    for pattern in AMBIGUOUS_PATTERNS:
-        if all(kw.upper() in upper for kw in pattern["keywords"]):
-            if any(pid in broken_ids for pid in pattern["possible_ids"]):
-                return True
-    return False
+    # 第一路由存活，某备用路由断
+    return STATUS_BACKUP
 
 
 def circuit_sort_key(circuit: dict) -> tuple:
@@ -321,18 +282,16 @@ def analyze(broken_cable_ids: list[str]) -> dict:
 
     result_circuits = []
     for c in circuits:
-        status = _classify_circuit(c, broken_ids, {})
+        status = _classify_circuit(c, broken_ids)
         if status is None:
             continue
         is_sh = (c["site_a"] == "上海")
         is_broken = status in BROKEN_STATUSES
-        is_temp = bool(c.get("current_route", "").strip())  # 是否运行在临时路由
         result_circuits.append({
             **c,
             "impact_status": status,
             "is_shanghai": is_sh,
             "is_broken": is_broken,
-            "is_temp_route": is_temp,  # 新增标记
         })
 
     result_circuits.sort(key=circuit_sort_key)

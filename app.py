@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime
@@ -17,9 +18,11 @@ from datetime import datetime
 from flask import Flask, jsonify, render_template, request, Response
 
 from cable_config import CABLES, CABLE_BY_ID
-from circuit_analyzer import analyze, bw_to_gbps
+from circuit_analyzer import analyze, bw_to_gbps, invalidate_cache
 from report_builder import build_reports
 from excel_builder import build_excel
+import data_source
+from comparison import compare as compare_manual
 
 # ── 配置 ─────────────────────────────────────────────────────────────
 PORT       = 8080
@@ -64,6 +67,57 @@ def _get_broken_ids(state: dict) -> list[str]:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+# ── 数据源（槽路表上传）─────────────────────────────────────────────
+
+@app.route("/api/datasource")
+def api_datasource():
+    """返回当前数据源状态（文件名、上传时间、读取状态、电路条数）。"""
+    return jsonify(data_source.get_status())
+
+
+@app.route("/api/upload", methods=["POST"])
+def api_upload():
+    """
+    上传最新槽路表 Excel，校验通过后保存为当前数据源并刷新缓存。
+    表单字段名：file
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "未收到上传文件（字段名应为 file）"}), 400
+    f = request.files["file"]
+    if not f or not f.filename:
+        return jsonify({"error": "未选择文件"}), 400
+
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in data_source.ALLOWED_EXT:
+        return jsonify({"error": f"文件不是 Excel（仅支持 {'/'.join(sorted(data_source.ALLOWED_EXT))}）"}), 400
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=ext)
+    try:
+        os.close(tmp_fd)
+        f.save(tmp_path)
+        status = data_source.save_uploaded(tmp_path, f.filename)
+    except data_source.DataSourceError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"保存失败：{e}"}), 500
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    # 清空分析缓存，确保后续分析立即使用新文件
+    invalidate_cache()
+    return jsonify({"ok": True, "datasource": status})
+
+
+@app.route("/api/compare")
+def api_compare():
+    """返回某条海缆的「系统结果 vs 人工结果」对比。?cable_id=APCN2_S3"""
+    cable_id = request.args.get("cable_id", "").strip()
+    if not cable_id or cable_id not in CABLE_BY_ID:
+        return jsonify({"error": "无效的 cable_id"}), 400
+    return jsonify(compare_manual(cable_id))
 
 
 @app.route("/api/cables")
@@ -260,7 +314,7 @@ def _circuit_key(c: dict) -> tuple:
         c.get("route1", ""),
         c.get("route2", ""),
         c.get("route3", ""),
-        c.get("current_route", ""),
+        c.get("route4", ""),
         c.get("bandwidth", ""),
     )
 

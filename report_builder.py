@@ -106,9 +106,6 @@ def build_reports(
     detail_lines = []
     for c in broken_iepl_sh:
         line = f"   - {c['customer']}：{c['site_a']}-{c['site_b']} {c['bandwidth']}"
-        # 如果是临时路由，添加标注
-        if c.get("is_temp_route", False):
-            line += " ⚠️临时路由"
         detail_lines.append(line)
     detail_str = "\n" + "\n".join(detail_lines) if detail_lines else "无"
 

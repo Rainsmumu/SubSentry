@@ -26,3 +26,6 @@ wheels/
 python-installer/
 *.zip
 *.tar.gz
+
+# Personal award/application materials (not part of the app)
+申报材料/

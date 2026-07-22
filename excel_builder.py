@@ -118,10 +118,7 @@ def build_excel(
         row = 3 + i
         ws.row_dimensions[row].height = 18
 
-        # 如果是临时路由，在影响状态后添加标注
         impact_text = c["impact_status"]
-        if c.get("is_temp_route", False):
-            impact_text += " ⚠️临时路由"
 
         values = [
             None,                  # A: 客户专线电路（首列合并区，数据行留空）
