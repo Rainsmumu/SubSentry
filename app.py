@@ -32,6 +32,19 @@ app = Flask(__name__)
 # 静态资源（tailwind/alpine 本地文件）允许浏览器缓存 1 天，减少跨境重复下载
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 
+# gzip 压缩：跨境访问时把 ~450KB 前端资源压到约 1/4，显著加快首次加载。
+# 未安装 flask-compress 时自动跳过（不影响本地运行）。
+app.config["COMPRESS_MIMETYPES"] = [
+    "text/html", "text/css", "text/xml", "application/json",
+    "application/javascript", "text/javascript",  # 本地 tailwind 以 text/javascript 提供
+]
+app.config["COMPRESS_MIN_SIZE"] = 500
+try:
+    from flask_compress import Compress
+    Compress(app)
+except ImportError:
+    pass
+
 
 def _warm_cache() -> None:
     """启动时预读一次数据源，把 13MB Excel 解析放到启动阶段，
@@ -82,6 +95,45 @@ def _get_broken_ids(state: dict) -> list[str]:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+# ── 前端第三方资源（预压缩，加速跨境首次加载）──────────────────────
+import gzip as _gzip
+
+_VENDOR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "vendor")
+_VENDOR_GZ_CACHE: dict[str, bytes] = {}
+_VENDOR_MIME = {".js": "text/javascript", ".css": "text/css"}  # Flask 会自动补 charset
+
+
+@app.route("/assets/vendor/<path:filename>")
+def vendor_asset(filename: str):
+    """
+    提供 tailwind/alpine 等本地第三方资源，并按需 gzip（内存缓存压缩结果）。
+    Flask 默认 /static 走文件直通模式，flask-compress 不会压缩，故单独处理最大的资源。
+    """
+    safe = os.path.basename(filename)
+    path = os.path.join(_VENDOR_DIR, safe)
+    if not os.path.isfile(path):
+        return jsonify({"error": "not found"}), 404
+
+    ctype = _VENDOR_MIME.get(os.path.splitext(safe)[1].lower(), "application/octet-stream")
+    accepts_gzip = "gzip" in request.headers.get("Accept-Encoding", "")
+
+    if accepts_gzip:
+        body = _VENDOR_GZ_CACHE.get(safe)
+        if body is None:
+            with open(path, "rb") as f:
+                body = _gzip.compress(f.read(), 6)
+            _VENDOR_GZ_CACHE[safe] = body
+        resp = Response(body, mimetype=ctype)
+        resp.headers["Content-Encoding"] = "gzip"
+        resp.headers["Vary"] = "Accept-Encoding"
+    else:
+        with open(path, "rb") as f:
+            resp = Response(f.read(), mimetype=ctype)
+
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 # ── 数据源（槽路表上传）─────────────────────────────────────────────
