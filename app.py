@@ -29,6 +29,21 @@ PORT       = 8080
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "fault_state.json")
 
 app = Flask(__name__)
+# 静态资源（tailwind/alpine 本地文件）允许浏览器缓存 1 天，减少跨境重复下载
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
+
+
+def _warm_cache() -> None:
+    """启动时预读一次数据源，把 13MB Excel 解析放到启动阶段，
+    避免第一个访问的用户等待约 8 秒。"""
+    try:
+        from circuit_analyzer import load_circuits
+        load_circuits()
+    except Exception as e:  # 数据源缺失/异常不应阻止服务启动
+        print(f"[warm_cache] 预加载数据源失败（首个请求将稍慢）：{e}")
+
+
+_warm_cache()
 
 
 # ── 状态持久化 ────────────────────────────────────────────────────────

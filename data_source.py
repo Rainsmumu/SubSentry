@@ -142,15 +142,18 @@ def get_status() -> dict:
         "error": None,
     }
 
+    # 注意：不在此处调用 validate_workbook()——它会重新打开 13MB Excel，
+    # 使每次打开页面都卡数秒。校验只在上传时(save_uploaded)做一次即可；
+    # 状态读取直接用带缓存的 load_circuits()，数据源变化时会自动重载。
     try:
-        validate_workbook(path)
-        # 统计可分析电路条数（延迟导入，避免循环依赖）
         from circuit_analyzer import load_circuits
-        circuits = load_circuits(force_reload=True)
+        circuits = load_circuits()
         status["readable"] = True
         status["circuit_count"] = len(circuits)
-    except DataSourceError as e:
-        status["error"] = str(e)
+    except FileNotFoundError:
+        status["error"] = "找不到数据源文件"
+    except KeyError:
+        status["error"] = f"数据源缺少「{TARGET_SHEET}」sheet"
     except Exception as e:
         status["error"] = f"读取失败：{e}"
 
