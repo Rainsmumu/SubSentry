@@ -1,8 +1,8 @@
 """
 comparison.py — 系统分析结果 vs 人工整理结果 对比
 
-读取「海缆路由中断分析结果/」目录下同事手工整理的受影响电路清单，
-与系统对同一条海缆的分析结果做对比，输出：
+读取「海缆路由中断分析结果/」目录下同事手工整理的客户专线清单，
+与系统对同一条海缆的客户专线分析结果做对比，输出：
   - 系统多出的电路（系统有、人工无）
   - 系统漏掉的电路（人工有、系统无）
   - 双方一致的电路
@@ -23,8 +23,12 @@ from circuit_analyzer import (
     analyze, extract_international_circuit_id, bw_to_gbps, build_source_index,
 )
 
-# 系统纳入统计的电路性质
+# 系统分析纳入的电路性质
 _VALID_TYPES = {"IP", "IEPL", "IPLC"}
+
+# 现有人工清单只整理客户专线，不包含 IP 中继电路。系统中的 IPLC 在
+# circuit_analyzer 中已归一化为 IEPL，因此对比时只需保留 IEPL。
+_MANUAL_COMPARISON_TYPES = {"IEPL"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MANUAL_DIR = os.path.join(BASE_DIR, "海缆路由中断分析结果")
@@ -113,8 +117,6 @@ def _diff_reason_system_only(c: dict) -> str:
     if not c.get("circuit_id"):
         reasons.append("系统侧国际电路名提取失败，人工可能已收录但未匹配上")
     reasons.append("人工清单可能未收录该电路（漏记或版本较旧）")
-    if c.get("type") == "IP":
-        reasons.append("该电路为 IP 电路，人工清单可能仅整理客户专线")
     return "；".join(reasons)
 
 
@@ -255,8 +257,14 @@ def compare(cable_id: str) -> dict:
             "error": "未找到该海缆对应的人工结果文件",
         }
 
-    # 系统结果：该海缆单独故障时的全部受影响电路
-    system_circuits = analyze([cable_id])["circuits"]
+    # 系统正常分析仍覆盖 IP + IEPL/IPLC；人工清单只覆盖客户专线，
+    # 因此差异对比必须排除 IP，否则所有已正确识别的 IP 都会被误报为“系统多出”。
+    all_system_circuits = analyze([cable_id])["circuits"]
+    system_circuits = [
+        c for c in all_system_circuits
+        if c.get("type") in _MANUAL_COMPARISON_TYPES
+    ]
+    excluded_ip = [c for c in all_system_circuits if c.get("type") == "IP"]
     manual_circuits = load_manual(cable_id)
     # 全量源表索引（按国际电路名），用于对"系统漏掉"逐条回查诊断
     source_index = build_source_index()
@@ -339,12 +347,14 @@ def compare(cable_id: str) -> dict:
         "cable_label": cable_label,
         "manual_available": True,
         "manual_file": os.path.basename(manual_path),
+        "scope_note": "人工清单仅包含客户专线；系统已识别的 IP 电路不纳入多出/漏掉对比。",
         "summary": {
             "system_count": len(system_circuits),
             "manual_count": len(manual_circuits),
             "matched": len(matched),
             "system_only": len(system_only),
             "manual_only": len(manual_only),
+            "ip_excluded": len(excluded_ip),
         },
         "matched": matched,
         "system_only": system_only,

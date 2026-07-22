@@ -416,6 +416,13 @@
             <div class="text-xs text-gray-500 mb-3">
               人工清单文件：<span class="text-gray-400" x-text="comparison.manual_file"></span>
             </div>
+            <div class="text-xs text-cyan-200 mb-3 px-3 py-2 rounded"
+                 style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.16)">
+              <span x-text="comparison.scope_note"></span>
+              <span class="text-gray-400" x-show="comparison.summary.ip_excluded > 0">
+                本段已识别 IP 电路 <span class="text-cyan-300 font-semibold" x-text="comparison.summary.ip_excluded"></span> 条。
+              </span>
+            </div>
             <!-- 汇总数量 -->
             <div class="grid grid-cols-4 gap-2 mb-4">
               <div class="p-2 rounded text-center" style="background:#12151f;border:1px solid #2e3347">
@@ -434,7 +441,7 @@
                 <div class="text-lg font-bold text-gray-300">
                   <span x-text="comparison.summary.system_count"></span>/<span x-text="comparison.summary.manual_count"></span>
                 </div>
-                <div class="text-xs text-gray-500">系统/人工</div>
+                <div class="text-xs text-gray-500">专线系统/人工</div>
               </div>
             </div>
 
