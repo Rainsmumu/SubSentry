@@ -1,11 +1,12 @@
 """
 comparison.py — 系统分析结果 vs 人工整理结果 对比
 
-读取「海缆路由中断分析结果/」目录下同事手工整理的客户专线清单，
-与系统对同一条海缆的客户专线分析结果做对比，输出：
+读取「海缆路由中断分析结果/」目录下同事手工整理的电路清单，
+与系统对同一条海缆的分析结果做对比，输出：
   - 系统多出的电路（系统有、人工无）
   - 系统漏掉的电路（人工有、系统无）
   - 双方一致的电路
+  - 无对应人工基准、暂时无法判定的电路
   - 汇总数量与差异可能原因
 
 匹配优先使用国际电路名；国际电路名缺失时，回退到
@@ -25,10 +26,6 @@ from circuit_analyzer import (
 
 # 系统分析纳入的电路性质
 _VALID_TYPES = {"IP", "IEPL", "IPLC"}
-
-# 现有人工清单只整理客户专线，不包含 IP 中继电路。系统中的 IPLC 在
-# circuit_analyzer 中已归一化为 IEPL，因此对比时只需保留 IEPL。
-_MANUAL_COMPARISON_TYPES = {"IEPL"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MANUAL_DIR = os.path.join(BASE_DIR, "海缆路由中断分析结果")
@@ -118,6 +115,36 @@ def _diff_reason_system_only(c: dict) -> str:
         reasons.append("系统侧国际电路名提取失败，人工可能已收录但未匹配上")
     reasons.append("人工清单可能未收录该电路（漏记或版本较旧）")
     return "；".join(reasons)
+
+
+def _manual_reference_types(manual_circuits: list[dict], source_index: dict) -> set[str]:
+    """根据国际电路名回查槽路表，判断人工清单实际覆盖了哪些电路类型。"""
+    types = set()
+    for circuit in manual_circuits:
+        key = _norm_name(circuit.get("circuit_id"))
+        for source_row in source_index.get(key, []):
+            circuit_type = source_row.get("type", "")
+            if circuit_type == "IPLC":
+                circuit_type = "IEPL"
+            if circuit_type:
+                types.add(circuit_type)
+    return types
+
+
+def _system_diff_record(c: dict, reason: str) -> dict:
+    """生成系统侧差异/待核验电路的统一展示记录。"""
+    routes = [c.get(f"route{i}") for i in range(1, 5)]
+    return {
+        "circuit_id": c.get("circuit_id"),
+        "customer": c.get("customer"),
+        "site_a": c.get("site_a"),
+        "site_b": c.get("site_b"),
+        "bandwidth": c.get("bandwidth"),
+        "impact_status": c.get("impact_status"),
+        "type": c.get("type"),
+        "routes": [route for route in routes if route],
+        "reason": reason,
+    }
 
 
 def _first_nonempty(items: list[str]) -> str:
@@ -257,17 +284,13 @@ def compare(cable_id: str) -> dict:
             "error": "未找到该海缆对应的人工结果文件",
         }
 
-    # 系统正常分析仍覆盖 IP + IEPL/IPLC；人工清单只覆盖客户专线，
-    # 因此差异对比必须排除 IP，否则所有已正确识别的 IP 都会被误报为“系统多出”。
-    all_system_circuits = analyze([cable_id])["circuits"]
-    system_circuits = [
-        c for c in all_system_circuits
-        if c.get("type") in _MANUAL_COMPARISON_TYPES
-    ]
-    excluded_ip = [c for c in all_system_circuits if c.get("type") == "IP"]
+    # 系统结果包含 IP + IEPL/IPLC，所有类型都参与对比。
+    system_circuits = analyze([cable_id])["circuits"]
     manual_circuits = load_manual(cable_id)
     # 全量源表索引（按国际电路名），用于对"系统漏掉"逐条回查诊断
     source_index = build_source_index()
+    manual_types = _manual_reference_types(manual_circuits, source_index)
+    manual_has_ip_reference = "IP" in manual_types
 
     # 建立系统侧索引：国际电路名 + 辅助键
     sys_by_name: dict[str, list[dict]] = {}
@@ -326,37 +349,47 @@ def compare(cable_id: str) -> dict:
             diag = diagnose_missing(m, cable_id, source_index)
             manual_only.append({**m, **diag})
 
-    # 系统多出：未被任何人工电路匹配到的系统电路
+    # 系统未匹配项需要区分两种情况：
+    # 1) 人工清单覆盖了该类型，才可判定为“系统多出”；
+    # 2) 人工清单完全没有 IP 基准时，IP 只能列为“待核验”，不能凭缺席判错。
     system_only = []
+    unverified = []
     for c in system_circuits:
-        if id(c) not in matched_sys_ids:
-            system_only.append({
-                "circuit_id": c.get("circuit_id"),
-                "customer": c.get("customer"),
-                "site_a": c.get("site_a"),
-                "site_b": c.get("site_b"),
-                "bandwidth": c.get("bandwidth"),
-                "impact_status": c.get("impact_status"),
-                "type": c.get("type"),
-                "route1": c.get("route1"),
-                "reason": _diff_reason_system_only(c),
-            })
+        if id(c) in matched_sys_ids:
+            continue
+        if c.get("type") == "IP" and not manual_has_ip_reference:
+            unverified.append(_system_diff_record(
+                c,
+                "人工清单未提供 IP 明细，当前无法判定一致或多出；系统命中依据已保留，待人工补充基准后复核。",
+            ))
+        else:
+            system_only.append(_system_diff_record(c, _diff_reason_system_only(c)))
+
+    if manual_has_ip_reference:
+        scope_note = "人工清单包含 IP 基准，IP 与客户专线均按电路逐条对比。"
+    else:
+        scope_note = (
+            "IP 电路已纳入对比；因当前人工清单没有 IP 明细，未匹配的 IP 单列为“待核验”，"
+            "不直接判定为系统多出。"
+        )
 
     return {
         "cable_id": cable_id,
         "cable_label": cable_label,
         "manual_available": True,
         "manual_file": os.path.basename(manual_path),
-        "scope_note": "人工清单仅包含客户专线；系统已识别的 IP 电路不纳入多出/漏掉对比。",
+        "scope_note": scope_note,
+        "manual_reference_types": sorted(manual_types),
         "summary": {
             "system_count": len(system_circuits),
             "manual_count": len(manual_circuits),
             "matched": len(matched),
             "system_only": len(system_only),
             "manual_only": len(manual_only),
-            "ip_excluded": len(excluded_ip),
+            "unverified": len(unverified),
         },
         "matched": matched,
         "system_only": system_only,
         "manual_only": manual_only,
+        "unverified": unverified,
     }

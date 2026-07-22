@@ -419,12 +419,9 @@
             <div class="text-xs text-cyan-200 mb-3 px-3 py-2 rounded"
                  style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.16)">
               <span x-text="comparison.scope_note"></span>
-              <span class="text-gray-400" x-show="comparison.summary.ip_excluded > 0">
-                本段已识别 IP 电路 <span class="text-cyan-300 font-semibold" x-text="comparison.summary.ip_excluded"></span> 条。
-              </span>
             </div>
             <!-- 汇总数量 -->
-            <div class="grid grid-cols-4 gap-2 mb-4">
+            <div class="grid gap-2 mb-4" style="grid-template-columns:repeat(auto-fit,minmax(105px,1fr))">
               <div class="p-2 rounded text-center" style="background:#12151f;border:1px solid #2e3347">
                 <div class="text-lg font-bold text-green-400" x-text="comparison.summary.matched"></div>
                 <div class="text-xs text-gray-500">一致</div>
@@ -438,10 +435,14 @@
                 <div class="text-xs text-gray-500">系统漏掉</div>
               </div>
               <div class="p-2 rounded text-center" style="background:#12151f;border:1px solid #2e3347">
+                <div class="text-lg font-bold text-cyan-300" x-text="comparison.summary.unverified"></div>
+                <div class="text-xs text-gray-500">IP 待核验</div>
+              </div>
+              <div class="p-2 rounded text-center" style="background:#12151f;border:1px solid #2e3347">
                 <div class="text-lg font-bold text-gray-300">
                   <span x-text="comparison.summary.system_count"></span>/<span x-text="comparison.summary.manual_count"></span>
                 </div>
-                <div class="text-xs text-gray-500">专线系统/人工</div>
+                <div class="text-xs text-gray-500">系统/人工</div>
               </div>
             </div>
 
@@ -452,6 +453,9 @@
               </button>
               <button class="tab-btn text-xs" :class="compareTab==='manual_only'&&'active'" @click="compareTab='manual_only'">
                 系统漏掉 (<span x-text="comparison.manual_only.length"></span>)
+              </button>
+              <button class="tab-btn text-xs" :class="compareTab==='unverified'&&'active'" @click="compareTab='unverified'">
+                IP 待核验 (<span x-text="comparison.unverified.length"></span>)
               </button>
               <button class="tab-btn text-xs" :class="compareTab==='matched'&&'active'" @click="compareTab='matched'">
                 一致 (<span x-text="comparison.matched.length"></span>)
@@ -476,6 +480,33 @@
                       <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
                       <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
                       <td class="py-2 pr-2 text-gray-400" x-text="c.type"></td>
+                      <td class="py-2 text-gray-500" x-text="c.reason"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 无人工 IP 基准，保留系统识别依据供人工核验 -->
+            <div x-show="compareTab==='unverified'" class="overflow-x-auto">
+              <div x-show="comparison.unverified.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
+              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.unverified.length>0">
+                <thead><tr style="border-bottom:1px solid #2e3347">
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户/用途</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">带宽</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">影响</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">路由</th>
+                  <th class="text-left text-gray-500 py-2 font-medium">核验说明</th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="(c,i) in comparison.unverified" :key="'uv'+i">
+                    <tr style="border-bottom:1px solid #1e2132">
+                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
+                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
+                      <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
+                      <td class="py-2 pr-2 text-gray-300" x-text="c.impact_status"></td>
+                      <td class="py-2 pr-2 text-gray-400" x-text="c.routes.join(' / ') || '—'"></td>
                       <td class="py-2 text-gray-500" x-text="c.reason"></td>
                     </tr>
                   </template>
