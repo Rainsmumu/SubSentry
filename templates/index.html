@@ -476,25 +476,39 @@
               </table>
             </div>
 
-            <!-- 系统漏掉 -->
+            <!-- 系统漏掉（含证据级原因分析）-->
             <div x-show="compareTab==='manual_only'" class="overflow-x-auto">
               <div x-show="comparison.manual_only.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
               <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.manual_only.length>0">
                 <thead><tr style="border-bottom:1px solid #2e3347">
                   <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">带宽</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">人工状态</th>
-                  <th class="text-left text-gray-500 py-2 font-medium">可能原因</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">槽路表定位</th>
+                  <th class="text-left text-gray-500 py-2 font-medium">漏掉原因（以电路名回查槽路表）</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(c,i) in comparison.manual_only" :key="'mo'+i">
-                    <tr style="border-bottom:1px solid #1e2132">
-                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
-                      <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
-                      <td class="py-2 pr-2 text-gray-400" x-text="c.status"></td>
-                      <td class="py-2 text-gray-500" x-text="c.reason"></td>
+                    <tr style="border-bottom:1px solid #1e2132; vertical-align:top">
+                      <td class="py-2 pr-2" style="min-width:150px">
+                        <div class="text-cyan-200" x-text="c.circuit_id || '（电路名提取失败）'"></div>
+                        <div class="text-gray-600" x-text="(c.customer||'') + ' ' + (c.bandwidth||'')"></div>
+                      </td>
+                      <td class="py-2 pr-2" style="min-width:130px">
+                        <template x-if="c.found_in_source">
+                          <div>
+                            <span class="badge" :class="c.source_status==='开通' ? 'badge-normal' : 'badge-broken'"
+                                  x-text="c.source_status || '状态空'"></span>
+                            <span class="badge badge-iepl ml-1" x-text="c.source_type || '?'"></span>
+                            <div class="text-gray-500 mt-1" x-text="'路由：' + ((c.source_routes||[]).join(' / ') || '无')"></div>
+                          </div>
+                        </template>
+                        <template x-if="!c.found_in_source">
+                          <span class="badge badge-suspect">槽路表未找到</span>
+                        </template>
+                      </td>
+                      <td class="py-2">
+                        <div class="font-semibold" style="color:#f59e0b" x-text="c.cause"></div>
+                        <div class="text-gray-500 mt-0.5 leading-relaxed" x-text="c.detail"></div>
+                      </td>
                     </tr>
                   </template>
                 </tbody>

@@ -58,6 +58,9 @@ BROKEN_STATUSES = {STATUS_NO_PROTECT, STATUS_DUAL_BREAK}
 _data_cache: list | None = None
 _data_mtime: float = 0.0
 _data_path: str = ""
+# 全量源表索引（不过滤状态/性质），用于对比诊断按国际电路名回查
+_source_index_cache: dict | None = None
+_source_index_key: tuple | None = None
 _INTERNATIONAL_CIRCUIT_RE = re.compile(r"([A-Z0-9-]+(?:/[A-Z0-9-]+)+\s+[A-Z0-9-]+)", re.IGNORECASE)
 
 
@@ -69,10 +72,67 @@ def _get_excel_path() -> str:
 
 def invalidate_cache() -> None:
     """清空电路数据缓存，使下次分析强制重新读取当前数据源。"""
-    global _data_cache, _data_mtime, _data_path
+    global _data_cache, _data_mtime, _data_path, _source_index_cache, _source_index_key
     _data_cache = None
     _data_mtime = 0.0
     _data_path = ""
+    _source_index_cache = None
+    _source_index_key = None
+
+
+def _norm_intl(name: str) -> str:
+    """归一化国际电路名作索引键：大写并去除所有空白。"""
+    return "".join(str(name or "").upper().split())
+
+
+def build_source_index(force_reload: bool = False) -> dict[str, list[dict]]:
+    """
+    按国际电路名索引槽路表「金桥机房电路」的**全部行**（不过滤状态/性质），
+    供对比诊断在系统结果之外回查一条电路的真实状态、性质、路由，从而判定漏掉原因。
+
+    返回 { 归一化国际电路名 -> [记录, ...] }，记录含 status/type/route1..4/site 等原始值。
+    """
+    global _source_index_cache, _source_index_key
+
+    path = _get_excel_path()
+    try:
+        mtime = os.path.getmtime(path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"找不到槽路表数据源：{path}")
+
+    key = (path, mtime)
+    if not force_reload and _source_index_cache is not None and _source_index_key == key:
+        return _source_index_cache
+
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb["金桥机房电路"]
+
+    index: dict[str, list[dict]] = {}
+    for row in ws.iter_rows(min_row=3, max_col=95, values_only=True):
+        raw = str(row[_COL["circuit_id"]] or "").strip()
+        intl = extract_international_circuit_id(raw)
+        nk = _norm_intl(intl)
+        if not nk:
+            continue
+        index.setdefault(nk, []).append({
+            "circuit_id":     intl,
+            "circuit_id_raw": raw,
+            "status":    str(row[_COL["status"]]    or "").strip(),
+            "type":      str(row[_COL["type"]]      or "").strip(),  # 原始性质，未归一化
+            "route1":    str(row[_COL["route1"]]    or "").strip(),
+            "route2":    str(row[_COL["route2"]]    or "").strip(),
+            "route3":    str(row[_COL["route3"]]    or "").strip(),
+            "route4":    str(row[_COL["route4"]]    or "").strip(),
+            "site_a":    str(row[_COL["site_a"]]    or "").strip(),
+            "site_b":    str(row[_COL["site_b"]]    or "").strip(),
+            "customer":  str(row[_COL["customer"]]  or "").strip(),
+            "bandwidth": str(row[_COL["bandwidth"]] or "").strip(),
+        })
+
+    wb.close()
+    _source_index_cache = index
+    _source_index_key = key
+    return index
 
 
 def load_circuits(force_reload: bool = False) -> list[dict]:

@@ -18,8 +18,13 @@ import os
 
 import openpyxl
 
-from cable_config import CABLE_BY_ID, match_route_to_cable_ids
-from circuit_analyzer import analyze, extract_international_circuit_id, bw_to_gbps
+from cable_config import CABLE_BY_ID, match_route_to_cable_ids, _normalize_route
+from circuit_analyzer import (
+    analyze, extract_international_circuit_id, bw_to_gbps, build_source_index,
+)
+
+# 系统纳入统计的电路性质
+_VALID_TYPES = {"IP", "IEPL", "IPLC"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MANUAL_DIR = os.path.join(BASE_DIR, "海缆路由中断分析结果")
@@ -113,20 +118,114 @@ def _diff_reason_system_only(c: dict) -> str:
     return "；".join(reasons)
 
 
-def _diff_reason_manual_only(c: dict) -> str:
-    """系统漏掉电路的可能原因。"""
-    reasons = []
-    if not c.get("circuit_id"):
-        reasons.append("人工电路名多行/格式特殊，国际电路名提取失败")
-    # 检查人工路由写法是否能被系统识别
-    routes = c.get("routes", [])
-    if routes and not any(match_route_to_cable_ids(r) for r in routes):
-        reasons.append("人工路由写法系统未能识别（如拼接海缆或写法不一致）")
-    st = c.get("status", "")
-    if st and st not in ("中断", "主用", "备用", "主备双断", "无保护"):
-        reasons.append(f"人工状态为「{st}」，可能非开通/含备注，系统未纳入统计")
-    reasons.append("系统仅统计开通的 IEPL/IPLC/IP，或槽路表版本与人工清单不一致")
-    return "；".join(reasons)
+def _first_nonempty(items: list[str]) -> str:
+    for x in items:
+        if x:
+            return x
+    return ""
+
+
+def diagnose_missing(m: dict, cable_id: str, source_index: dict) -> dict:
+    """
+    以国际电路名为锚点，在槽路表全量数据中回查该「系统漏掉」电路，
+    结合其真实状态/性质/路由，给出证据级的漏掉原因。
+
+    返回 {
+      "found_in_source": bool,
+      "source_status", "source_type", "source_routes": [...],
+      "cause":  短标签（用于归类）,
+      "detail": 详细说明,
+    }
+    """
+    cable = CABLE_BY_ID.get(cable_id, {})
+    cname = cable.get("cable", "")
+    seg = cable.get("segment", "")
+
+    nk = _norm_name(m.get("circuit_id"))
+    base = {"found_in_source": False, "source_status": None,
+            "source_type": None, "source_routes": []}
+
+    # 1) 人工侧连国际电路名都没提取出来
+    if not nk:
+        return {**base, "cause": "电路名提取失败",
+                "detail": "人工清单该行未能提取出国际电路名（电路名多行或写法特殊），无法在槽路表中定位比对。"}
+
+    rows = source_index.get(nk, [])
+
+    # 2) 槽路表中根本找不到这个国际电路名
+    if not rows:
+        return {**base, "cause": "槽路表中未找到该电路",
+                "detail": f"按国际电路名「{m.get('circuit_id')}」在当前槽路表「金桥机房电路」中未找到匹配行。"
+                          f"可能：人工清单与最新槽路表版本不一致、该电路已销户/改名，或人工电路名与槽路表写法不同。"}
+
+    # 优先分析"开通"的行
+    opened = [r for r in rows if r["status"] == "开通"]
+    consider = opened if opened else rows
+
+    def _routes(r):
+        return [r["route1"], r["route2"], r["route3"], r["route4"]]
+
+    # 3) 若某匹配行本应被系统命中（开通 + 性质合规 + 路由能匹配到该段落），
+    #    说明问题出在对比匹配环节而非分析环节
+    for r in consider:
+        nonempty = [x for x in _routes(r) if x]
+        matching_route = next((x for x in nonempty if cable_id in match_route_to_cable_ids(x)), None)
+        if r["status"] == "开通" and r["type"] in _VALID_TYPES and matching_route:
+            return {"found_in_source": True, "source_status": r["status"],
+                    "source_type": r["type"], "source_routes": nonempty,
+                    "cause": "系统应已命中（对比未对上）",
+                    "detail": f"槽路表中该电路为「开通/{r['type']}」，且路由「{matching_route}」"
+                              f"可匹配到 {cname} {seg}，系统分析理应已包含它；未对上多为电路名提取差异或存在重复电路，建议人工复核。"}
+
+    # 4) 逐项判定失败原因（取首条开通行，无则首行）
+    r = consider[0]
+    nonempty = [x for x in _routes(r) if x]
+    problems = []
+    cause = None
+
+    if r["status"] != "开通":
+        problems.append(f"槽路表中该电路状态为「{r['status'] or '空'}」，系统只统计开通电路")
+        cause = cause or "非开通电路"
+
+    if r["type"] not in _VALID_TYPES:
+        problems.append(f"电路性质为「{r['type'] or '空'}」，不在系统统计范围（仅 IP/IEPL/IPLC）")
+        cause = cause or "性质不在统计范围"
+
+    if not nonempty:
+        problems.append("该电路在槽路表中无路由信息，系统无法判断其是否经过故障段落")
+        cause = cause or "无路由信息"
+    else:
+        hits = any(cable_id in match_route_to_cable_ids(x) for x in nonempty)
+        if not hits:
+            mentions_cable = bool(cname) and any(
+                _normalize_route(cname) in _normalize_route(x) for x in nonempty)
+            routes_txt = "、".join(nonempty)
+            manual_routes = [x for x in m.get("routes", []) if x]
+            manual_has_target = any(cable_id in match_route_to_cable_ids(x) for x in manual_routes)
+            if mentions_cable:
+                problems.append(
+                    f"路由写作「{routes_txt}」——只有海缆名 {cname}、缺少明确段落 {seg}"
+                    f"（旧式模糊写法，如「{cname}崇明」「崇明{cname}」未拆分到段落），系统按精确段落匹配未命中")
+                cause = cause or "路由写法模糊（仅海缆名无段落）"
+            elif manual_has_target:
+                problems.append(
+                    f"人工清单标注该电路经 {cname} {seg}（人工路由：{('、'.join(manual_routes)) or '无'}），"
+                    f"但当前槽路表中该电路路由仅为「{routes_txt}」，未记录该段落——"
+                    f"多为源表(备用)路由字段缺失或槽路表版本与人工清单不一致")
+                cause = cause or "源表路由与人工不一致（源表缺该段落）"
+            else:
+                problems.append(
+                    f"路由「{routes_txt}」中不含目标段落 {cname} {seg}，系统未判定其受该段落影响"
+                    f"（可能人工归类差异，或该电路实际走其它段落/版本不一致）")
+                cause = cause or "路由不含该段落"
+
+    if not problems:
+        problems.append("槽路表中该电路为开通/合规性质且路由可匹配，未能自动判定漏掉原因，建议人工复核。")
+        cause = cause or "待人工复核"
+
+    return {"found_in_source": True, "source_status": r["status"],
+            "source_type": r["type"], "source_routes": nonempty,
+            "cause": cause, "detail": "；".join(problems)}
 
 
 def compare(cable_id: str) -> dict:
@@ -159,6 +258,8 @@ def compare(cable_id: str) -> dict:
     # 系统结果：该海缆单独故障时的全部受影响电路
     system_circuits = analyze([cable_id])["circuits"]
     manual_circuits = load_manual(cable_id)
+    # 全量源表索引（按国际电路名），用于对"系统漏掉"逐条回查诊断
+    source_index = build_source_index()
 
     # 建立系统侧索引：国际电路名 + 辅助键
     sys_by_name: dict[str, list[dict]] = {}
@@ -171,42 +272,51 @@ def compare(cable_id: str) -> dict:
         sys_by_aux.setdefault(aux, []).append(c)
 
     matched = []
-    manual_only = []
     matched_sys_ids = set()  # 用 id() 标记已匹配的系统电路
 
+    def _record_match(m, hit):
+        matched_sys_ids.add(id(hit))
+        matched.append({
+            "circuit_id": m.get("circuit_id") or hit.get("circuit_id"),
+            "customer": hit.get("customer") or m.get("customer"),
+            "site_a": hit.get("site_a"),
+            "site_b": hit.get("site_b"),
+            "bandwidth": hit.get("bandwidth"),
+            "system_status": hit.get("impact_status"),
+            "manual_status": m.get("status"),
+            "type": hit.get("type"),
+        })
+
+    # 第一轮：全部按国际电路名精确匹配（先把能对上名字的都对上，
+    #         避免辅助键抢占了本应按名字匹配的系统电路）。
+    unmatched = []
     for m in manual_circuits:
         n = _norm_name(m.get("circuit_id"))
         hit = None
-        # 优先国际电路名匹配
         if n and sys_by_name.get(n):
             for cand in sys_by_name[n]:
                 if id(cand) not in matched_sys_ids:
                     hit = cand
                     break
-        # 回退辅助键匹配
-        if hit is None:
-            aux = _aux_key(m.get("customer"), m.get("site_a"), m.get("site_b"), m.get("bandwidth"))
-            for cand in sys_by_aux.get(aux, []):
-                if id(cand) not in matched_sys_ids:
-                    hit = cand
-                    break
         if hit is not None:
-            matched_sys_ids.add(id(hit))
-            matched.append({
-                "circuit_id": m.get("circuit_id") or hit.get("circuit_id"),
-                "customer": hit.get("customer") or m.get("customer"),
-                "site_a": hit.get("site_a"),
-                "site_b": hit.get("site_b"),
-                "bandwidth": hit.get("bandwidth"),
-                "system_status": hit.get("impact_status"),
-                "manual_status": m.get("status"),
-                "type": hit.get("type"),
-            })
+            _record_match(m, hit)
         else:
-            manual_only.append({
-                **m,
-                "reason": _diff_reason_manual_only(m),
-            })
+            unmatched.append(m)
+
+    # 第二轮：仅对仍未匹配的人工电路，用辅助键（客户+A端+Z端+带宽）兜底匹配。
+    manual_only = []
+    for m in unmatched:
+        hit = None
+        aux = _aux_key(m.get("customer"), m.get("site_a"), m.get("site_b"), m.get("bandwidth"))
+        for cand in sys_by_aux.get(aux, []):
+            if id(cand) not in matched_sys_ids:
+                hit = cand
+                break
+        if hit is not None:
+            _record_match(m, hit)
+        else:
+            diag = diagnose_missing(m, cable_id, source_index)
+            manual_only.append({**m, **diag})
 
     # 系统多出：未被任何人工电路匹配到的系统电路
     system_only = []
