@@ -435,6 +435,10 @@
                 <div class="text-xs text-gray-500">系统漏掉</div>
               </div>
               <div class="p-2 rounded text-center" style="background:#12151f;border:1px solid #2e3347">
+                <div class="text-lg font-bold text-orange-400" x-text="comparison.summary.status_mismatch"></div>
+                <div class="text-xs text-gray-500">状态不一致</div>
+              </div>
+              <div class="p-2 rounded text-center" style="background:#12151f;border:1px solid #2e3347">
                 <div class="text-lg font-bold text-cyan-300" x-text="comparison.summary.unverified"></div>
                 <div class="text-xs text-gray-500">IP 待核验</div>
               </div>
@@ -447,12 +451,15 @@
             </div>
 
             <!-- 对比明细 Tabs -->
-            <div class="flex gap-1 border-b border-gray-800 mb-3">
+            <div class="flex flex-wrap gap-1 border-b border-gray-800 mb-3">
               <button class="tab-btn text-xs" :class="compareTab==='system_only'&&'active'" @click="compareTab='system_only'">
                 系统多出 (<span x-text="comparison.system_only.length"></span>)
               </button>
               <button class="tab-btn text-xs" :class="compareTab==='manual_only'&&'active'" @click="compareTab='manual_only'">
                 系统漏掉 (<span x-text="comparison.manual_only.length"></span>)
+              </button>
+              <button class="tab-btn text-xs" :class="compareTab==='status_mismatch'&&'active'" @click="compareTab='status_mismatch'">
+                状态不一致 (<span x-text="comparison.status_mismatch.length"></span>)
               </button>
               <button class="tab-btn text-xs" :class="compareTab==='unverified'&&'active'" @click="compareTab='unverified'">
                 IP 待核验 (<span x-text="comparison.unverified.length"></span>)
@@ -481,6 +488,35 @@
                       <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
                       <td class="py-2 pr-2 text-gray-400" x-text="c.type"></td>
                       <td class="py-2 text-gray-500" x-text="c.reason"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 同一电路已命中，但影响状态不同 -->
+            <div x-show="compareTab==='status_mismatch'" class="overflow-x-auto">
+              <div x-show="comparison.status_mismatch.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
+              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.status_mismatch.length>0">
+                <thead><tr style="border-bottom:1px solid #2e3347">
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">人工状态</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">系统状态</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">人工路由</th>
+                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">系统路由</th>
+                  <th class="text-left text-gray-500 py-2 font-medium">差异说明</th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="(c,i) in comparison.status_mismatch" :key="'sm'+i">
+                    <tr style="border-bottom:1px solid #1e2132;vertical-align:top">
+                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
+                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
+                      <td class="py-2 pr-2 text-gray-300"><span class="badge" x-text="c.manual_status"></span></td>
+                      <td class="py-2 pr-2"><span class="badge" :class="impactBadgeClass(c.system_status)" x-text="c.system_status"></span></td>
+                      <td class="py-2 pr-2 text-gray-400" x-text="c.manual_routes.join(' / ') || '—'"></td>
+                      <td class="py-2 pr-2 text-gray-400" x-text="c.system_routes.join(' / ') || '—'"></td>
+                      <td class="py-2 text-orange-300" x-text="c.reason"></td>
                     </tr>
                   </template>
                 </tbody>

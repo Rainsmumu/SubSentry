@@ -46,6 +46,7 @@ class ComparisonScopeTests(unittest.TestCase):
         result = comparison.compare("TPE_S1S")
 
         self.assertEqual(result["summary"]["matched"], 1)
+        self.assertEqual(result["summary"]["status_mismatch"], 0)
         self.assertEqual(result["summary"]["system_only"], 0)
         self.assertEqual(result["summary"]["unverified"], 1)
         self.assertEqual(result["system_only"], [])
@@ -89,9 +90,47 @@ class ComparisonScopeTests(unittest.TestCase):
             result = comparison.compare("TPE_S1S")
 
         self.assertEqual(result["summary"]["matched"], 1)
+        self.assertEqual(result["summary"]["status_mismatch"], 0)
         self.assertEqual(result["summary"]["system_only"], 1)
         self.assertEqual(result["summary"]["unverified"], 0)
         self.assertEqual(result["system_only"][0]["circuit_id"], extra_ip["circuit_id"])
+
+    def test_same_circuit_with_different_status_is_reported_separately(self):
+        system_circuit = {
+            "circuit_id": "SHI/CU-TOK/CU EP001",
+            "customer": "测试客户",
+            "site_a": "上海",
+            "site_b": "日本",
+            "bandwidth": "1G",
+            "impact_status": "无保护",
+            "type": "IEPL",
+            "route1": "TPE S1S",
+        }
+        manual = [{
+            "status": "主用",
+            "circuit_id": system_circuit["circuit_id"],
+            "customer": system_circuit["customer"],
+            "site_a": system_circuit["site_a"],
+            "site_b": system_circuit["site_b"],
+            "bandwidth": system_circuit["bandwidth"],
+            "routes": ["TPE S1S", "APCN2 S4A"],
+        }]
+
+        with (
+            patch("comparison.manual_file_for", return_value="manual.xlsx"),
+            patch("comparison.analyze", return_value={"circuits": [system_circuit]}),
+            patch("comparison.load_manual", return_value=manual),
+            patch("comparison.build_source_index", return_value={}),
+        ):
+            result = comparison.compare("TPE_S1S")
+
+        self.assertEqual(result["summary"]["matched"], 0)
+        self.assertEqual(result["summary"]["status_mismatch"], 1)
+        self.assertEqual(result["summary"]["system_only"], 0)
+        self.assertEqual(result["summary"]["manual_only"], 0)
+        mismatch = result["status_mismatch"][0]
+        self.assertEqual(mismatch["manual_status"], "主用")
+        self.assertEqual(mismatch["system_status"], "无保护")
 
 
 if __name__ == "__main__":

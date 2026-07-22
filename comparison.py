@@ -147,6 +147,31 @@ def _system_diff_record(c: dict, reason: str) -> dict:
     }
 
 
+def _status_group(status: str) -> str:
+    """把人工与系统的不同状态名称归一到同一业务含义。"""
+    normalized = str(status or "").strip()
+    if normalized in {"中断", "无保护", "主备双断", "双断"}:
+        return "中断"
+    if normalized == "主用":
+        return "主用"
+    if normalized == "备用":
+        return "备用"
+    return normalized
+
+
+def _status_mismatch_reason(manual_status: str, system_status: str) -> str:
+    """根据人工与系统状态组合，给出便于复核的差异说明。"""
+    manual_group = _status_group(manual_status)
+    system_group = _status_group(system_status)
+    if manual_group == "中断" and system_group in {"主用", "备用"}:
+        return "人工判定业务中断，但系统认为仍有一条路由存活，需核对备用路由是否真实有效。"
+    if system_group == "中断" and manual_group in {"主用", "备用"}:
+        return "系统判定可用路由已全部中断，但人工清单认为仍有保护，需核对路由字段是否缺失或过期。"
+    if {manual_group, system_group} == {"主用", "备用"}:
+        return "人工与系统对主备路由的顺序认定相反，需核对第一路由和备用路由的业务口径。"
+    return "人工状态与系统状态不一致，需结合两侧路由信息复核。"
+
+
 def _first_nonempty(items: list[str]) -> str:
     for x in items:
         if x:
@@ -265,8 +290,10 @@ def compare(cable_id: str) -> dict:
     {
       "cable_id", "cable_label", "manual_available",
       "manual_file",
-      "summary": {system_count, manual_count, matched, system_only, manual_only},
+      "summary": {system_count, manual_count, matched, status_mismatch,
+                  system_only, manual_only, unverified},
       "matched":     [...],
+      "status_mismatch": [...],
       "system_only": [...],   # 系统多出
       "manual_only": [...],   # 系统漏掉
     }
@@ -303,20 +330,34 @@ def compare(cable_id: str) -> dict:
         sys_by_aux.setdefault(aux, []).append(c)
 
     matched = []
+    status_mismatch = []
     matched_sys_ids = set()  # 用 id() 标记已匹配的系统电路
 
     def _record_match(m, hit):
         matched_sys_ids.add(id(hit))
-        matched.append({
+        system_status = hit.get("impact_status")
+        manual_status = m.get("status")
+        record = {
             "circuit_id": m.get("circuit_id") or hit.get("circuit_id"),
             "customer": hit.get("customer") or m.get("customer"),
             "site_a": hit.get("site_a"),
             "site_b": hit.get("site_b"),
             "bandwidth": hit.get("bandwidth"),
-            "system_status": hit.get("impact_status"),
-            "manual_status": m.get("status"),
+            "system_status": system_status,
+            "manual_status": manual_status,
             "type": hit.get("type"),
-        })
+            "system_routes": [
+                route for route in (hit.get(f"route{i}") for i in range(1, 5)) if route
+            ],
+            "manual_routes": m.get("routes", []),
+        }
+        if _status_group(manual_status) == _status_group(system_status):
+            matched.append(record)
+        else:
+            status_mismatch.append({
+                **record,
+                "reason": _status_mismatch_reason(manual_status, system_status),
+            })
 
     # 第一轮：全部按国际电路名精确匹配（先把能对上名字的都对上，
     #         避免辅助键抢占了本应按名字匹配的系统电路）。
@@ -384,11 +425,13 @@ def compare(cable_id: str) -> dict:
             "system_count": len(system_circuits),
             "manual_count": len(manual_circuits),
             "matched": len(matched),
+            "status_mismatch": len(status_mismatch),
             "system_only": len(system_only),
             "manual_only": len(manual_only),
             "unverified": len(unverified),
         },
         "matched": matched,
+        "status_mismatch": status_mismatch,
         "system_only": system_only,
         "manual_only": manual_only,
         "unverified": unverified,
