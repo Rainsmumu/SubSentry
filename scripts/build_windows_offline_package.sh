@@ -25,6 +25,7 @@ APP_ITEMS=(
   excel_builder.py
   report_builder.py
   requirements.txt
+  windows_manage.py
   README.md
   templates
   static
@@ -126,6 +127,14 @@ normalize_batch_files() {
     perl -pi -e 's/\r?\n/\r\n/g' {} \;
 }
 
+run_packaged_tests() {
+  local app_root="$1"
+  (
+    cd "$app_root"
+    PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests
+  )
+}
+
 echo "Assembling complete first-install package..."
 VERSION_APP="$FULL_ROOT/versions/$VERSION"
 copy_items "$VERSION_APP" "${APP_ITEMS[@]}"
@@ -144,6 +153,7 @@ mkdir -p "$FULL_ROOT/python-installer"
 cp "$ROOT/$PYTHON_INSTALLER" "$FULL_ROOT/$PYTHON_INSTALLER"
 cp -R "$WHEEL_CACHE" "$FULL_ROOT/wheels"
 normalize_batch_files "$FULL_ROOT"
+run_packaged_tests "$VERSION_APP"
 write_checksums "$FULL_ROOT"
 
 echo "Assembling code-only update package..."
@@ -155,6 +165,7 @@ printf '%s\n' "$VERSION" >"$UPDATE_ROOT/PACKAGE_VERSION.txt"
 write_version_file "$UPDATE_ROOT/VERSION.txt"
 cp -R "$WHEEL_CACHE" "$UPDATE_ROOT/wheels"
 normalize_batch_files "$UPDATE_ROOT"
+run_packaged_tests "$UPDATE_ROOT/app"
 write_checksums "$UPDATE_ROOT"
 
 echo "Creating ZIP archives..."

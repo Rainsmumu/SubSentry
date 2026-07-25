@@ -19,6 +19,7 @@ APP_FILES = {
     "excel_builder.py",
     "report_builder.py",
     "requirements.txt",
+    "windows_manage.py",
     "templates/index.html",
     "static/vendor/alpine.min.js",
     "static/vendor/tailwindcss.js",
