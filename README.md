@@ -20,12 +20,13 @@
 
 ## 环境依赖
 
-- **Python 3.8+**
+- **Python 3.9+**（Windows 离线包固定使用 Python 3.12 64 位）
 - **Flask**
 - **openpyxl**
+- **Waitress**
 
 ```bash
-pip install flask openpyxl
+pip install -r requirements.txt
 ```
 
 ---
@@ -34,14 +35,15 @@ pip install flask openpyxl
 
 ### 1. 放置数据文件
 
-将金桥机房电路表 Excel 文件命名为以下名称，放到项目根目录：
+首次运行可使用项目内的初始槽路表，也可在网页中上传最新槽路表。系统只
+读取大 Excel 文件中的 `金桥机房电路` 工作表，上传文件名不受限制。
 
 ```
 SubSentry/
-└── 金桥机房电路表.xlsx
+└── 上海ITMC电路槽路表0407改进版.xlsx
 ```
 
-> 该文件每次生成通报时**实时读取**（有缓存，文件更新后会自动刷新）。
+> 上传后的当前文件保存在 `data/uploads/`，数据变化后缓存会自动刷新。
 
 ### 2. 启动服务
 
@@ -65,6 +67,12 @@ python app.py
 ### 3. 打开浏览器
 
 访问 `http://localhost:8080`
+
+---
+
+Windows 10 完全离线安装、升级、备份和回退流程见
+[`WINDOWS_OFFLINE_DEPLOY.md`](WINDOWS_OFFLINE_DEPLOY.md)。值班机默认仅
+本机访问 `http://127.0.0.1:18765`；服务器默认端口仍为 `8080`。
 
 ---
 

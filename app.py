@@ -25,8 +25,13 @@ import data_source
 from comparison import compare as compare_manual
 
 # ── 配置 ─────────────────────────────────────────────────────────────
-PORT       = 8080
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "fault_state.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.abspath(
+    os.environ.get("SUBSENTRY_DATA_DIR", os.path.join(BASE_DIR, "data"))
+)
+HOST = os.environ.get("SUBSENTRY_HOST", "0.0.0.0")
+PORT = int(os.environ.get("SUBSENTRY_PORT", "8080"))
+STATE_FILE = os.path.join(DATA_DIR, "fault_state.json")
 
 app = Flask(__name__)
 # 静态资源（tailwind/alpine 本地文件）允许浏览器缓存 1 天，减少跨境重复下载
@@ -74,8 +79,18 @@ def _load_state() -> dict:
 
 def _save_state(state: dict) -> None:
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix="fault-state-", suffix=".json", dir=os.path.dirname(STATE_FILE)
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, STATE_FILE)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 def _get_broken_ids(state: dict) -> list[str]:
@@ -519,4 +534,4 @@ if __name__ == "__main__":
     print()
     print(f"  启动地址: http://localhost:{PORT}")
     print("  按 Ctrl+C 停止\n")
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host=HOST, port=PORT, debug=False)

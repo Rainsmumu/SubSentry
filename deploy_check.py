@@ -10,34 +10,41 @@ import os
 import sys
 
 
-MIN_VERSION = (3, 8)
-DATA_FILE = "金桥机房电路表.xlsx"
+MIN_VERSION = (3, 9)
+WINDOWS_VERSION = (3, 12)
 
 
 def check_python() -> int:
     print("=== Python ===")
     print(sys.version.split()[0])
-    if sys.version_info < MIN_VERSION:
-        print("[ERROR] Python 3.8 or newer is required.")
+    required = (
+        WINDOWS_VERSION
+        if os.environ.get("SUBSENTRY_WINDOWS") == "1"
+        else MIN_VERSION
+    )
+    if sys.version_info < required:
+        print(f"[ERROR] Python {required[0]}.{required[1]} or newer is required.")
         return 1
     return 0
 
 
 def check_data_file() -> int:
     print("\n=== Data file ===")
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATA_FILE)
+    from data_source import get_current_path
+
+    path = get_current_path()
     if os.path.exists(path):
-        print("Found:", DATA_FILE)
+        print("Found:", path)
         return 0
-    print("[ERROR] Missing data file:", DATA_FILE)
-    print("Please put it in the same folder as app.py before starting SubSentry.")
+    print("[ERROR] Missing data file:", path)
+    print("Upload or install the circuit table before starting SubSentry.")
     return 1
 
 
 def check_modules() -> int:
     print("\n=== Required modules ===")
     failed = False
-    for name in ("flask", "openpyxl"):
+    for name in ("flask", "openpyxl", "waitress"):
         try:
             importlib.import_module(name)
             version = importlib.metadata.version(name)

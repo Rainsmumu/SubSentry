@@ -1,0 +1,14 @@
+@echo off
+
+if not defined SUBSENTRY_ROOT (
+  for %%I in ("%~dp0.") do set "SUBSENTRY_ROOT=%%~fI"
+)
+
+set "SUBSENTRY_WINDOWS=1"
+set "SUBSENTRY_HOST=127.0.0.1"
+set "SUBSENTRY_PORT=18765"
+set "SUBSENTRY_DATA_DIR=%SUBSENTRY_ROOT%\data"
+set "SUBSENTRY_REFERENCE_DIR=%SUBSENTRY_ROOT%\reference"
+set "SUBSENTRY_BACKUP_DIR=%SUBSENTRY_ROOT%\backups"
+set "SUBSENTRY_DEFAULT_SOURCE=%SUBSENTRY_ROOT%\bootstrap\上海ITMC电路槽路表0407改进版.xlsx"
+set "PYTHONUTF8=1"

@@ -1,5 +1,7 @@
 @echo off
-echo Close the SubSentry command window, or press Ctrl+C in that window.
+chcp 65001 >nul
+echo Open the SubSentry command window and press Ctrl+C.
 echo.
-echo This script does not kill all python.exe processes to avoid stopping unrelated tools.
+echo This script intentionally does not terminate python.exe or unknown processes.
+echo The application uses local port 18765.
 pause

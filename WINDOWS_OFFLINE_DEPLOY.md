@@ -1,119 +1,156 @@
-# SubSentry Windows 离线部署说明
+# SubSentry Windows 10 完全离线部署说明
 
-## 目标环境
+本方案面向值班电脑单机使用：
 
-- Windows 10/11
-- Python 3.8 或更高版本
-- 目标电脑无需联网
+- 系统：Windows 10 64 位
+- 安装目录：`E:\SubSentry`
+- Python：部署包自带 Python 3.12.10 64 位安装程序
+- 网络：安装与运行均不依赖互联网
+- 访问地址：`http://127.0.0.1:18765`
+- 启动方式：人工启动，不设置开机自启
 
-## 部署包内容
+端口 `18765` 比 `8080` 等常见开发端口更不易冲突。程序只监听
+`127.0.0.1`，因此只有值班电脑本机能够访问。
 
-部署目录应至少包含：
+## 两种发布包
+
+### 首次安装完整包
+
+文件名形如：
 
 ```text
-SubSentry/
-├── app.py
-├── cable_config.py
-├── circuit_analyzer.py
-├── excel_builder.py
-├── report_builder.py
-├── deploy_check.py
-├── requirements.txt
-├── install_python_312.bat
-├── install_offline_deps.bat
-├── check_env.bat
-├── start.bat
-├── stop_subsentry.bat
-├── resolve_python.bat
-├── python-installer/
-│   └── python-3.12.10-amd64.exe
-├── templates/
-├── static/
-│   └── vendor/
-│       ├── alpine.min.js
-│       └── tailwindcss.js
-├── data/
-└── 金桥机房电路表.xlsx
+SubSentry_2026.07.25-windows-offline-r1_FULL.zip
 ```
+
+包含 Python 安装程序、全部离线依赖、完整程序、初始槽路表和人工对比清单。
+
+### 后续更新包
+
+文件名形如：
+
+```text
+SubSentry_2026.07.25-windows-offline-r1_UPDATE.zip
+```
+
+只包含新程序和离线依赖，不包含槽路表、人工清单、故障记录或历史备份。
+因此更新不会覆盖值班机正在使用的业务数据。
 
 ## 首次安装
 
-1. 把整个 `SubSentry` 文件夹复制到 Windows 电脑。
-2. 确认 `金桥机房电路表.xlsx` 位于 `SubSentry` 根目录。
-3. 如果电脑只有 Python 3.6，先双击运行 `install_python_312.bat`。
-4. 双击运行 `install_offline_deps.bat`。脚本会在当前目录创建本地 `.venv`，不会改动系统 Python 环境。
-5. 双击运行 `check_env.bat`。
-6. 双击运行 `start.bat`。
-7. 浏览器访问 `http://127.0.0.1:8080`。
+1. 在 `E:` 盘创建 `E:\SubSentry`，将完整包中的 `SubSentry` 文件夹内容放入其中。
+2. 双击 `install_python_312.bat`，离线安装 Python 3.12.10 64 位。
+3. 双击 `install_offline_deps.bat`，安装离线依赖并初始化首个版本。
+4. 双击 `check_env.bat`，确认 Python、依赖、槽路表和当前版本均正常。
+5. 双击 `start.bat`，保持命令窗口开启。
+6. 在浏览器访问 `http://127.0.0.1:18765`。
+7. 停止系统时，回到启动窗口按 `Ctrl+C`。
 
-## 局域网访问
+已有 Python 3.6 不需要卸载。脚本只寻找和使用 Python 3.12，并为每个
+SubSentry 版本建立独立虚拟环境，不会污染 Python 3.6 的环境。
 
-如果其他电脑需要访问：
-
-1. 在 Windows 电脑运行 `ipconfig`，找到本机 IPv4 地址。
-2. 其他电脑访问 `http://Windows电脑IP:8080`。
-3. 如果打不开，需要在 Windows 防火墙中允许 Python 访问专用网络，或放通 TCP 8080。
-
-## 故障状态文件
-
-系统运行状态保存在：
+## 目录与数据
 
 ```text
-data/fault_state.json
+E:\SubSentry\
+├── versions\                 每个程序版本及其独立虚拟环境
+├── data\                     当前故障状态和当前槽路表
+│   ├── fault_state.json
+│   └── uploads\
+├── reference\                当前人工对比清单
+├── backups\                  自动和手工备份
+├── bootstrap\                首次安装用初始资料
+├── current_version.txt       当前启用版本
+├── start.bat
+├── backup.bat
+└── rollback.bat
 ```
 
-升级版本时不要覆盖这个文件，否则当前故障记录会丢失。
+程序版本和业务数据分开存放。更新、切换或回退程序版本时，`data`、
+`reference` 和 `backups` 不会被覆盖。
 
-## 回退原则
+## 上传最新槽路表
 
-每个正式发布包都应对应一个 Git 标签。回退时使用对应版本的部署包覆盖程序文件，但保留：
+系统安装后，通过网页的数据源上传功能选择最新槽路表。文件名可以变化，
+但必须包含结构一致的 `金桥机房电路` 工作表。
 
-- `金桥机房电路表.xlsx`
-- `data/fault_state.json`
+每次上传新槽路表前，系统会将当前槽路表自动备份到：
+
+```text
+E:\SubSentry\backups\datasource-日期时间\
+```
+
+最多保留最近 30 份槽路表备份。
+
+## 手工备份
+
+双击 `backup.bat`。系统会备份：
+
+- 当前槽路表与故障状态
+- 当前人工对比清单
+- 当前启用版本信息
+
+备份位于 `E:\SubSentry\backups\system-日期时间-manual\`，最多保留最近
+30 份系统备份。
+
+建议在上传新槽路表、替换人工清单、安装更新前各执行一次手工备份。
+
+## 后续更新
+
+更新应先在服务器完成测试，再生成一个新版本号的完整包和更新包。
+
+1. 将更新 ZIP 传到值班电脑并解压到临时目录，不要覆盖 `E:\SubSentry`。
+2. 停止正在运行的 SubSentry，确认启动窗口已经关闭。
+3. 在解压出的更新目录中双击 `install_update.bat`。
+4. 脚本会先备份现有数据，再复制新版本、创建独立虚拟环境并运行测试。
+5. 只有全部测试通过后，新版本才会被设为当前版本。
+6. 双击 `E:\SubSentry\check_env.bat`，再运行 `start.bat` 验证页面。
+
+更新失败时，旧版本仍保持启用，业务数据不会被删除。
+
+## 回退版本
+
+1. 先停止 SubSentry。
+2. 双击 `E:\SubSentry\rollback.bat`。
+3. 脚本会先备份当前数据，再切换到上一版本。
+4. 运行 `check_env.bat`，确认正常后运行 `start.bat`。
+
+版本回退只切换程序，不回退业务数据。如果确实需要恢复历史槽路表或人工
+清单，应从相应备份目录人工核对后恢复，避免误覆盖新数据。
+
+## 发布包校验
+
+每个 ZIP 内含 `SHA256SUMS.txt`。首次复制到 U 盘或值班机后，可使用
+Windows 自带命令核对关键文件：
+
+```bat
+certutil -hashfile python-installer\python-3.12.10-amd64.exe SHA256
+```
+
+计算结果应与 `SHA256SUMS.txt` 中对应文件一致。
 
 ## 常见问题
 
-### Python 版本过低
+### 端口被占用
 
-运行：
+`start.bat` 会在启动前检查 `18765`。如果被占用，脚本会显示占用进程的
+PID，并拒绝启动，避免误杀其他程序。
 
-```bat
-python --version
-```
+### 浏览器无法打开
 
-如果低于 3.8，需要先安装更高版本 Python，或更换电脑。
-
-本发布包内置 Python 3.12.10 Windows 64 位安装程序。电脑只有 Python 3.6 时，先运行：
-
-```bat
-install_python_312.bat
-```
-
-### 页面没有样式或按钮无反应
-
-检查以下文件是否存在：
+确认启动窗口仍然开启，并访问完整地址：
 
 ```text
-static/vendor/alpine.min.js
-static/vendor/tailwindcss.js
+http://127.0.0.1:18765
 ```
 
-离线部署不能依赖外网 CDN。
+不要使用服务器地址，也不需要配置 Windows 防火墙。
 
-### 缺少 Flask/openpyxl
+### 离线依赖安装失败
 
-运行：
+不要使用 `pip install` 联网补包。应重新使用完整发布包，确认其中的
+`wheels` 文件夹没有在传输过程中丢失。
 
-```bat
-install_offline_deps.bat
-```
+### Python 3.12 安装被拦截
 
-如果仍失败，说明 `wheels/` 离线依赖包不完整。
-
-### 出现 `'raise' 不是内部或外部命令`
-
-这是旧版部署脚本在 Windows CMD 中解析 `python -c` 命令时触发的问题。请使用 `v2026.05.06-windows-offline-r2` 或更新版本。
-
-### Python 3.9 提示缺少 `importlib-metadata`
-
-这是 Python 3.9 使用 Flask 2.3 时需要的条件依赖。请使用 `v2026.05.06-windows-offline-r3` 或更新版本。
+这通常是公司终端管控策略导致。保留错误截图，联系桌面支持人员放行部署包
+内的官方 Python 3.12.10 64 位安装程序。

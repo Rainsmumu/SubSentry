@@ -3,74 +3,167 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="${1:-$(date +%Y.%m.%d)-windows-offline}"
-OUT_DIR="$ROOT/release/SubSentry_${VERSION}"
-ZIP_FILE="$ROOT/release/SubSentry_${VERSION}.zip"
+RELEASE_DIR="$ROOT/release"
+BUILD_DIR="$RELEASE_DIR/.build-$VERSION"
+FULL_ROOT="$BUILD_DIR/full/SubSentry"
+UPDATE_ROOT="$BUILD_DIR/update/SubSentry_Update_$VERSION"
+FULL_ZIP="$RELEASE_DIR/SubSentry_${VERSION}_FULL.zip"
+UPDATE_ZIP="$RELEASE_DIR/SubSentry_${VERSION}_UPDATE.zip"
+WHEEL_CACHE="$ROOT/wheels/win312"
 
-ensure_wheels() {
-  mkdir -p "$ROOT/wheels"
-  for pyver in 38 39 310 311 312 313; do
-    python3 -m pip download -r "$ROOT/requirements.txt" -d "$ROOT/wheels" \
-      --only-binary=:all: --platform win_amd64 --implementation cp \
-      --python-version "$pyver" --trusted-host pypi.org \
-      --trusted-host files.pythonhosted.org >/dev/null
-  done
+PYTHON_INSTALLER="python-installer/python-3.12.10-amd64.exe"
+BOOTSTRAP_SOURCE="上海ITMC电路槽路表0407改进版.xlsx"
+REFERENCE_DIR="海缆路由中断分析结果"
 
-  # pip evaluates environment markers on the build machine. These are needed on
-  # Windows/Python 3.8-3.9 even if the package builder runs on macOS.
-  python3 -m pip download importlib-metadata==6.8.0 zipp==3.20.2 colorama==0.4.6 \
-    -d "$ROOT/wheels" --only-binary=:all: --platform win_amd64 \
-    --implementation cp --python-version 39 --trusted-host pypi.org \
-    --trusted-host files.pythonhosted.org >/dev/null
-}
+APP_ITEMS=(
+  app.py
+  cable_config.py
+  circuit_analyzer.py
+  comparison.py
+  data_source.py
+  deploy_check.py
+  excel_builder.py
+  report_builder.py
+  requirements.txt
+  README.md
+  templates
+  static
+  tests/test_cable_config.py
+  tests/test_comparison.py
+  tests/test_excel_builder.py
+  tests/test_windows_manage.py
+)
 
-ensure_wheels
+ROOT_ITEMS=(
+  backup.bat
+  check_env.bat
+  install_offline_deps.bat
+  install_python_312.bat
+  resolve_python.bat
+  rollback.bat
+  set_env.bat
+  start.bat
+  stop_subsentry.bat
+  windows_manage.py
+  WINDOWS_OFFLINE_DEPLOY.md
+)
 
-rm -rf "$OUT_DIR" "$ZIP_FILE"
-mkdir -p "$OUT_DIR/data"
+if [[ ! "$VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$ ]]; then
+  echo "Invalid version: $VERSION" >&2
+  exit 1
+fi
 
-copy_item() {
-  local src="$1"
-  if [ -e "$ROOT/$src" ]; then
-    mkdir -p "$OUT_DIR/$(dirname "$src")"
-    cp -R "$ROOT/$src" "$OUT_DIR/$src"
+for path in "$PYTHON_INSTALLER" "$BOOTSTRAP_SOURCE" "$REFERENCE_DIR"; do
+  if [[ ! -e "$ROOT/$path" ]]; then
+    echo "Missing required package input: $ROOT/$path" >&2
+    exit 1
   fi
+done
+
+if [[ -e "$BUILD_DIR" || -e "$FULL_ZIP" || -e "$UPDATE_ZIP" ]]; then
+  echo "Release output already exists for $VERSION. Use a new version." >&2
+  exit 1
+fi
+
+mkdir -p "$RELEASE_DIR" "$BUILD_DIR" "$WHEEL_CACHE"
+
+echo "Downloading Windows Python 3.12 x64 wheels..."
+python3 -m pip download \
+  --requirement "$ROOT/requirements.txt" \
+  --dest "$WHEEL_CACHE" \
+  --only-binary=:all: \
+  --platform win_amd64 \
+  --implementation cp \
+  --python-version 312 \
+  --trusted-host pypi.org \
+  --trusted-host files.pythonhosted.org
+
+# pip evaluates platform markers on the macOS build host, so include the
+# Windows-only terminal dependency explicitly.
+python3 -m pip download \
+  colorama==0.4.6 \
+  --dest "$WHEEL_CACHE" \
+  --only-binary=:all: \
+  --platform win_amd64 \
+  --implementation cp \
+  --python-version 312 \
+  --trusted-host pypi.org \
+  --trusted-host files.pythonhosted.org
+
+copy_items() {
+  local destination="$1"
+  shift
+  mkdir -p "$destination"
+  for item in "$@"; do
+    mkdir -p "$destination/$(dirname "$item")"
+    cp -R "$ROOT/$item" "$destination/$item"
+  done
 }
 
-copy_item app.py
-copy_item cable_config.py
-copy_item circuit_analyzer.py
-copy_item excel_builder.py
-copy_item report_builder.py
-copy_item deploy_check.py
-copy_item requirements.txt
-copy_item README.md
-copy_item WINDOWS_OFFLINE_DEPLOY.md
-copy_item install_offline_deps.bat
-copy_item install_python_312.bat
-copy_item check_env.bat
-copy_item start.bat
-copy_item stop_subsentry.bat
-copy_item resolve_python.bat
-copy_item templates
-copy_item static
-copy_item python-installer
-copy_item "海缆路由图"
-copy_item "金桥机房电路表-数据源说明.md"
-
-if [ -f "$ROOT/金桥机房电路表.xlsx" ]; then
-  cp "$ROOT/金桥机房电路表.xlsx" "$OUT_DIR/金桥机房电路表.xlsx"
-fi
-
-if [ -d "$ROOT/wheels" ]; then
-  cp -R "$ROOT/wheels" "$OUT_DIR/wheels"
-fi
-
-cat > "$OUT_DIR/VERSION.txt" <<EOF
+write_version_file() {
+  local path="$1"
+  cat >"$path" <<EOF
 SubSentry
 Version: $VERSION
-Git Commit: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
-Build Time: $(date '+%Y-%m-%d %H:%M:%S')
+Git Commit: $(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
+Build Time: $(date '+%Y-%m-%d %H:%M:%S %z')
+Windows Port: 18765
 EOF
+}
 
-python3 -m zipfile -c "$ZIP_FILE" "$OUT_DIR"
-echo "$ZIP_FILE"
+write_checksums() {
+  local package_root="$1"
+  (
+    cd "$package_root"
+    find . -type f ! -name SHA256SUMS.txt -exec shasum -a 256 {} \; \
+      | sort >SHA256SUMS.txt
+  )
+}
+
+echo "Assembling complete first-install package..."
+VERSION_APP="$FULL_ROOT/versions/$VERSION"
+copy_items "$VERSION_APP" "${APP_ITEMS[@]}"
+copy_items "$FULL_ROOT" "${ROOT_ITEMS[@]}"
+printf '%s\n' "$VERSION" >"$FULL_ROOT/PACKAGE_VERSION.txt"
+write_version_file "$FULL_ROOT/VERSION.txt"
+mkdir -p \
+  "$FULL_ROOT/bootstrap/reference" \
+  "$FULL_ROOT/data/uploads" \
+  "$FULL_ROOT/reference" \
+  "$FULL_ROOT/backups" \
+  "$FULL_ROOT/logs"
+cp "$ROOT/$BOOTSTRAP_SOURCE" "$FULL_ROOT/bootstrap/$BOOTSTRAP_SOURCE"
+cp -R "$ROOT/$REFERENCE_DIR/." "$FULL_ROOT/bootstrap/reference/"
+mkdir -p "$FULL_ROOT/python-installer"
+cp "$ROOT/$PYTHON_INSTALLER" "$FULL_ROOT/$PYTHON_INSTALLER"
+cp -R "$WHEEL_CACHE" "$FULL_ROOT/wheels"
+write_checksums "$FULL_ROOT"
+
+echo "Assembling code-only update package..."
+copy_items "$UPDATE_ROOT/app" "${APP_ITEMS[@]}"
+copy_items "$UPDATE_ROOT/root_files" "${ROOT_ITEMS[@]}"
+cp "$ROOT/install_update.bat" "$UPDATE_ROOT/install_update.bat"
+cp "$ROOT/windows_manage.py" "$UPDATE_ROOT/windows_manage.py"
+printf '%s\n' "$VERSION" >"$UPDATE_ROOT/PACKAGE_VERSION.txt"
+write_version_file "$UPDATE_ROOT/VERSION.txt"
+cp -R "$WHEEL_CACHE" "$UPDATE_ROOT/wheels"
+write_checksums "$UPDATE_ROOT"
+
+echo "Creating ZIP archives..."
+(
+  cd "$BUILD_DIR/full"
+  python3 -m zipfile -c "$FULL_ZIP" SubSentry
+)
+(
+  cd "$BUILD_DIR/update"
+  python3 -m zipfile -c "$UPDATE_ZIP" "SubSentry_Update_$VERSION"
+)
+
+python3 "$ROOT/scripts/verify_windows_package.py" \
+  --full "$FULL_ZIP" \
+  --update "$UPDATE_ZIP" \
+  --version "$VERSION"
+
+echo
+echo "$FULL_ZIP"
+echo "$UPDATE_ZIP"

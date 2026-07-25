@@ -15,22 +15,34 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import tempfile
 from datetime import datetime
 
 import openpyxl
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.abspath(
+    os.environ.get("SUBSENTRY_DATA_DIR", os.path.join(BASE_DIR, "data"))
+)
+BACKUP_DIR = os.path.abspath(
+    os.environ.get("SUBSENTRY_BACKUP_DIR", os.path.join(DATA_DIR, "backups"))
+)
 
 # 需要读取的目标 sheet 名
 TARGET_SHEET = "金桥机房电路"
 
 # 上传目录与当前数据源固定文件名
-UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 CURRENT_FILE = os.path.join(UPLOAD_DIR, "current_circuit_table.xlsx")
 META_FILE = os.path.join(UPLOAD_DIR, "current_meta.json")
 
 # 尚未上传时使用的初始数据源（项目自带样例）
-DEFAULT_SOURCE = os.path.join(BASE_DIR, "上海ITMC电路槽路表0407改进版.xlsx")
+DEFAULT_SOURCE = os.path.abspath(
+    os.environ.get(
+        "SUBSENTRY_DEFAULT_SOURCE",
+        os.path.join(BASE_DIR, "上海ITMC电路槽路表0407改进版.xlsx"),
+    )
+)
 # 旧版固定文件（作为再兜底，兼容历史部署）
 LEGACY_SOURCE = os.path.join(BASE_DIR, "金桥机房电路表.xlsx")
 
@@ -62,8 +74,42 @@ def _read_meta() -> dict:
 
 def _write_meta(meta: dict) -> None:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    with open(META_FILE, "w", encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
+    fd, tmp_path = tempfile.mkstemp(prefix="meta-", suffix=".json", dir=UPLOAD_DIR)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, META_FILE)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def _backup_current_source() -> None:
+    """上传新槽路表前备份当前文件和元信息，最多保留最近30份。"""
+    if not os.path.exists(CURRENT_FILE):
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    target_dir = os.path.join(BACKUP_DIR, f"datasource-{timestamp}")
+    os.makedirs(target_dir, exist_ok=True)
+    shutil.copy2(CURRENT_FILE, os.path.join(target_dir, "current_circuit_table.xlsx"))
+    if os.path.exists(META_FILE):
+        shutil.copy2(META_FILE, os.path.join(target_dir, "current_meta.json"))
+
+    backups = sorted(
+        (
+            os.path.join(BACKUP_DIR, name)
+            for name in os.listdir(BACKUP_DIR)
+            if name.startswith("datasource-")
+            and os.path.isdir(os.path.join(BACKUP_DIR, name))
+        ),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    for old_dir in backups[30:]:
+        shutil.rmtree(old_dir, ignore_errors=True)
 
 
 def validate_workbook(path: str) -> None:
@@ -101,7 +147,17 @@ def save_uploaded(tmp_path: str, original_name: str) -> dict:
     validate_workbook(tmp_path)
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    shutil.copyfile(tmp_path, CURRENT_FILE)
+    _backup_current_source()
+    fd, staged_path = tempfile.mkstemp(
+        prefix="circuit-table-", suffix=".xlsx", dir=UPLOAD_DIR
+    )
+    os.close(fd)
+    try:
+        shutil.copyfile(tmp_path, staged_path)
+        os.replace(staged_path, CURRENT_FILE)
+    finally:
+        if os.path.exists(staged_path):
+            os.remove(staged_path)
 
     meta = {
         "original_name": original_name,
@@ -132,11 +188,21 @@ def get_status() -> dict:
     else:
         filename = os.path.basename(path)
 
+    try:
+        display_path = (
+            os.path.relpath(path, BASE_DIR)
+            if os.path.commonpath([BASE_DIR, path]) == BASE_DIR
+            else path
+        )
+    except ValueError:
+        # Windows 不同盘符之间不能计算 commonpath/relpath。
+        display_path = path
+
     status: dict = {
         "filename": filename,
         "is_uploaded": is_uploaded,
         "uploaded_at": meta.get("uploaded_at"),
-        "path": os.path.relpath(path, BASE_DIR),
+        "path": display_path,
         "readable": False,
         "circuit_count": None,
         "error": None,

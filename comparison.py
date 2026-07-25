@@ -28,7 +28,12 @@ from circuit_analyzer import (
 _VALID_TYPES = {"IP", "IEPL", "IPLC", "DDN"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MANUAL_DIR = os.path.join(BASE_DIR, "海缆路由中断分析结果")
+MANUAL_DIR = os.path.abspath(
+    os.environ.get(
+        "SUBSENTRY_REFERENCE_DIR",
+        os.path.join(BASE_DIR, "海缆路由中断分析结果"),
+    )
+)
 
 # 人工清单列索引（0-based）：状态 | A端 | Z端 | 客户名 | 电路名 | 电路速率 | 1 | 2 | 3 | 4
 _M_COL = {
