@@ -25,7 +25,7 @@ from circuit_analyzer import (
 )
 
 # 系统分析纳入的电路性质
-_VALID_TYPES = {"IP", "IEPL", "IPLC"}
+_VALID_TYPES = {"IP", "IEPL", "IPLC", "DDN"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MANUAL_DIR = os.path.join(BASE_DIR, "海缆路由中断分析结果")
@@ -124,7 +124,7 @@ def _manual_reference_types(manual_circuits: list[dict], source_index: dict) -> 
         key = _norm_name(circuit.get("circuit_id"))
         for source_row in source_index.get(key, []):
             circuit_type = source_row.get("type", "")
-            if circuit_type == "IPLC":
+            if circuit_type in {"IPLC", "DDN"}:
                 circuit_type = "IEPL"
             if circuit_type:
                 types.add(circuit_type)
@@ -242,7 +242,7 @@ def diagnose_missing(m: dict, cable_id: str, source_index: dict) -> dict:
         cause = cause or "非开通电路"
 
     if r["type"] not in _VALID_TYPES:
-        problems.append(f"电路性质为「{r['type'] or '空'}」，不在系统统计范围（仅 IP/IEPL/IPLC）")
+        problems.append(f"电路性质为「{r['type'] or '空'}」，不在系统统计范围（仅 IP/IEPL/IPLC/DDN）")
         cause = cause or "性质不在统计范围"
 
     if not nonempty:
@@ -311,7 +311,7 @@ def compare(cable_id: str) -> dict:
             "error": "未找到该海缆对应的人工结果文件",
         }
 
-    # 系统结果包含 IP + IEPL/IPLC，所有类型都参与对比。
+    # 系统结果包含 IP + IEPL/IPLC/DDN，所有类型都参与对比。
     system_circuits = analyze([cable_id])["circuits"]
     manual_circuits = load_manual(cable_id)
     # 全量源表索引（按国际电路名），用于对"系统漏掉"逐条回查诊断

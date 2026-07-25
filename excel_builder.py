@@ -2,9 +2,9 @@
 excel_builder.py — 国际海缆故障影响业务统计表生成
 
 对齐样例文件格式：
-  Row 1: 标题（合并 A1:H1，加粗居中）
-  Row 2: 事件描述（合并 A2:H2）
-  Row 3: 表头（客户专线电路 | 序号 | 客户名称 | 电路编号 | 电路速率 | A端 | Z端 | 此次故障影响主用或备用）
+  Row 1: 标题（合并 A1:N1，加粗居中）
+  Row 2: 事件描述（合并 A2:N2）
+  Row 3: 基本信息、影响状态、电路性质、合作方式及第一至第四路由
   Row 4+: IEPL 数据行，上海落地优先，按带宽从大到小排序
 """
 
@@ -64,9 +64,16 @@ def build_excel(
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Sheet1"
+    ws.freeze_panes = "C4"
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.print_title_rows = "1:3"
 
     # ── 列宽 ────────────────────────────────────────────────────────
-    col_widths = [14, 6, 28, 32, 10, 10, 10, 30]
+    col_widths = [14, 6, 28, 32, 10, 10, 10, 30, 12, 14, 20, 20, 20, 20]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -81,7 +88,7 @@ def build_excel(
     header_fill = PatternFill("solid", fgColor="D9E1F2")  # 浅蓝背景
 
     # ── Row 1：标题 ─────────────────────────────────────────────────
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:N1")
     ws.row_dimensions[1].height = 28
     cell = ws["A1"]
     cell.value     = "国际海缆故障影响业务统计表"
@@ -89,7 +96,7 @@ def build_excel(
     cell.alignment = center_va
 
     # ── Row 2：事件描述 ─────────────────────────────────────────────
-    ws.merge_cells("A2:H2")
+    ws.merge_cells("A2:N2")
     ws.row_dimensions[2].height = 22
     desc = (
         f"  {dt.year} 年 {month} 月 {day} 日 {hour} 时 {minute:02d} 分，"
@@ -104,6 +111,8 @@ def build_excel(
         "客户专线电路", "序号", "客户名称", "电路编号",
         "电路速率", "A端", "Z端",
         "此次故障影响主用或备用\n（如没有标注默认为无保护）",
+        "电路性质", "合作方式\n（Inbound/Outbound）",
+        "第一路由", "第二路由", "第三路由", "第四路由",
     ]
     ws.row_dimensions[3].height = 36
     for col, h in enumerate(headers, 1):
@@ -129,11 +138,20 @@ def build_excel(
             c["site_a"],           # F: A端
             c["site_b"],           # G: Z端
             impact_text,           # H: 影响类型（含临时路由标注）
+            c.get("source_type") or c.get("type"),  # I: 槽路表原始电路性质
+            c.get("cooperation"),  # J: Inbound / Outbound / 未注明
+            c.get("route1"),       # K: 第一路由
+            c.get("route2"),       # L: 第二路由
+            c.get("route3"),       # M: 第三路由
+            c.get("route4"),       # N: 第四路由
         ]
         for col, val in enumerate(values, 1):
             cell = ws.cell(row=row, column=col, value=val)
             cell.alignment = left_va
             cell.border    = border_all
+
+    if iepl:
+        ws.auto_filter.ref = f"B3:N{3 + len(iepl)}"
 
     # ── 输出到字节流 ────────────────────────────────────────────────
     buf = io.BytesIO()

@@ -120,7 +120,7 @@ def get_status() -> dict:
       - uploaded_at: 上传时间（仅上传时有）
       - path:        实际读取路径（相对项目根）
       - readable:    能否正常读取「金桥机房电路」sheet
-      - circuit_count: 开通且属于 IP/IEPL/IPLC 的电路条数（读取成功时）
+      - circuit_count: 开通且属于 IP/IEPL/IPLC/DDN 的电路条数（读取成功时）
       - error:       读取失败时的原因
     """
     path = get_current_path()

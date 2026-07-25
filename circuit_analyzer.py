@@ -1,7 +1,7 @@
 """
 circuit_analyzer.py — 电路影响分析引擎
 
-从金桥机房电路表读取开通的 IP/IEPL 电路，
+从金桥机房电路表读取开通的 IP/IEPL/IPLC/DDN 电路，
 根据当前故障海缆集合判断每条电路的影响状态。
 
 影响分类：
@@ -35,14 +35,15 @@ _COL = {
     "route4":      29,   # 第四路由（并列路由腿，非"当前路由"）
     "bandwidth":   34,
     "type":        38,
+    "cooperation": 39,
     "status":      90,
 }
 
-# 统计的电路性质：IP、IEPL、IPLC（IPLC 与 IEPL 同属客户专线，样本数据包含此类型）
-_VALID_TYPES = {"IP", "IEPL", "IPLC"}
+# 统计的电路性质：IP，以及 IEPL/IPLC/DDN 客户专线
+_VALID_TYPES = {"IP", "IEPL", "IPLC", "DDN"}
 
-# 归一化：IPLC 统一当作 IEPL 处理（统计专线明细）
-_NORMALIZE_TYPE = {"IPLC": "IEPL"}
+# IPLC、DDN 均按客户专线参与页面、通报及汇总；source_type 保留原始性质。
+_NORMALIZE_TYPE = {"IPLC": "IEPL", "DDN": "IEPL"}
 
 # 影响状态常量
 STATUS_NO_PROTECT   = "无保护"      # 业务中断（单腿断）
@@ -127,6 +128,7 @@ def build_source_index(force_reload: bool = False) -> dict[str, list[dict]]:
             "site_b":    str(row[_COL["site_b"]]    or "").strip(),
             "customer":  str(row[_COL["customer"]]  or "").strip(),
             "bandwidth": str(row[_COL["bandwidth"]] or "").strip(),
+            "cooperation": str(row[_COL["cooperation"]] or "").strip(),
         })
 
     wb.close()
@@ -137,7 +139,7 @@ def build_source_index(force_reload: bool = False) -> dict[str, list[dict]]:
 
 def load_circuits(force_reload: bool = False) -> list[dict]:
     """
-    加载金桥机房电路表中所有"开通"的 IP/IEPL/IPLC 电路。
+    加载金桥机房电路表中所有"开通"的 IP/IEPL/IPLC/DDN 电路。
     返回列表，每项为字典形式的电路信息。
     """
     global _data_cache, _data_mtime, _data_path
@@ -161,7 +163,7 @@ def load_circuits(force_reload: bool = False) -> list[dict]:
         # 过滤：只取开通状态
         if str(row[_COL["status"]] or "").strip() != "开通":
             continue
-        # 过滤：只取 IP / IEPL
+        # 过滤：只取 IP / IEPL / IPLC / DDN
         ctype = str(row[_COL["type"]] or "").strip()
         if ctype not in _VALID_TYPES:
             continue
@@ -179,7 +181,9 @@ def load_circuits(force_reload: bool = False) -> list[dict]:
             "route3":    str(row[_COL["route3"]]    or "").strip(),
             "route4":    str(row[_COL["route4"]]    or "").strip(),
             "bandwidth": str(row[_COL["bandwidth"]] or "").strip(),
-            "type":      _NORMALIZE_TYPE.get(ctype, ctype),  # IPLC → IEPL
+            "source_type": ctype,
+            "type":      _NORMALIZE_TYPE.get(ctype, ctype),
+            "cooperation": str(row[_COL["cooperation"]] or "").strip(),
         })
 
     wb.close()

@@ -840,13 +840,38 @@ function app() {
     },
 
     // ── 下载 Excel ──────────────────────────────────────────────────
-    downloadExcel() {
+    async downloadExcel() {
       if (!this.result) return;
       const query = this.result.event_id
         ? `event_id=${encodeURIComponent(this.result.event_id)}`
         : `cable_id=${encodeURIComponent(this.result.cable_id)}&fault_time=${encodeURIComponent(this.result.fault_time)}`;
       const url = `/api/download?${query}`;
-      const a = document.createElement('a'); a.href = url; a.click();
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.error || `下载失败（${res.status}）`);
+        }
+
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const filename = filenameMatch
+          ? decodeURIComponent(filenameMatch[1])
+          : '国际海缆故障影响业务统计表.xlsx';
+
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      } catch (e) {
+        alert(e.message || `下载失败：${e}`);
+      }
     },
 
     nowLocalInputValue() {

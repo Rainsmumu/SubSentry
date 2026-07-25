@@ -7,6 +7,8 @@ cable_config.py — 海缆段落硬编码配置
 
 from __future__ import annotations
 
+import re
+
 # 8 条海缆段落配置
 # id: 系统内唯一标识符
 # cable: 海缆名称（通报中使用）
@@ -14,7 +16,7 @@ from __future__ import annotations
 # landing: 登陆站（崇明 / 南汇）
 # route_desc: 路由描述（通报中"XX-XX"部分）
 # direction: 影响方向（通报中"影响XX、XX方向"）
-# match_all: 路由字段中必须同时包含的关键字列表（全部作为子串命中才算此段落）
+# match_all: 海缆名称与段落编号。匹配时两者必须在同一路由片段中连续出现，
 #   兼容拼接海缆与空格/大小写差异，例如 "APCN2 S4A+PC1崇明" 命中 APCN2 S4A。
 CABLES = [
     {
@@ -115,10 +117,13 @@ def match_route_to_cable_ids(route_str: str) -> list[str]:
     """
     判断一个路由字段值命中了哪些海缆段落，返回所有命中段落 id 列表。
 
-    采用"关键字全部为子串"匹配，兼容：
+    采用"海缆名+段落成对"匹配，兼容：
       - 拼接海缆："APCN2 S4A+PC1崇明" → ["APCN2_S4A"]
       - 空格/大小写差异："apcn2  s4a" → ["APCN2_S4A"]
       - "S1.1 段" 等后缀
+
+    海缆名和段落不能跨拼接片段组合。例如 "NCP S3+APG S4"
+    只命中 NCP S3、APG S4，不会错误命中 APG S3。
     """
     if not route_str:
         return []
@@ -126,7 +131,13 @@ def match_route_to_cable_ids(route_str: str) -> list[str]:
     norm = _normalize_route(route_str)
     matched = []
     for cable in CABLES:
-        if all(_normalize_route(kw) in norm for kw in cable["match_all"]):
+        cable_name, segment = (_normalize_route(kw) for kw in cable["match_all"])
+        # 允许海缆名和段落之间出现 -、_、/，但禁止借用另一拼接段的段落号。
+        pattern = (
+            rf"(?<![A-Z0-9]){re.escape(cable_name)}[-_/]*"
+            rf"{re.escape(segment)}(?![A-Z0-9.])"
+        )
+        if re.search(pattern, norm):
             matched.append(cable["id"])
     return matched
 
