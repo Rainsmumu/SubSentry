@@ -120,6 +120,12 @@ write_checksums() {
   )
 }
 
+normalize_batch_files() {
+  local package_root="$1"
+  find "$package_root" -type f -name "*.bat" -exec \
+    perl -pi -e 's/\r?\n/\r\n/g' {} \;
+}
+
 echo "Assembling complete first-install package..."
 VERSION_APP="$FULL_ROOT/versions/$VERSION"
 copy_items "$VERSION_APP" "${APP_ITEMS[@]}"
@@ -137,6 +143,7 @@ cp -R "$ROOT/$REFERENCE_DIR/." "$FULL_ROOT/bootstrap/reference/"
 mkdir -p "$FULL_ROOT/python-installer"
 cp "$ROOT/$PYTHON_INSTALLER" "$FULL_ROOT/$PYTHON_INSTALLER"
 cp -R "$WHEEL_CACHE" "$FULL_ROOT/wheels"
+normalize_batch_files "$FULL_ROOT"
 write_checksums "$FULL_ROOT"
 
 echo "Assembling code-only update package..."
@@ -147,6 +154,7 @@ cp "$ROOT/windows_manage.py" "$UPDATE_ROOT/windows_manage.py"
 printf '%s\n' "$VERSION" >"$UPDATE_ROOT/PACKAGE_VERSION.txt"
 write_version_file "$UPDATE_ROOT/VERSION.txt"
 cp -R "$WHEEL_CACHE" "$UPDATE_ROOT/wheels"
+normalize_batch_files "$UPDATE_ROOT"
 write_checksums "$UPDATE_ROOT"
 
 echo "Creating ZIP archives..."

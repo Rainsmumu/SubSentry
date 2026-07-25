@@ -58,6 +58,17 @@ def _require(members: set[str], required: set[str], label: str) -> None:
         raise ValueError(f"{label} is missing: {', '.join(missing)}")
 
 
+def _verify_batch_line_endings(path: Path) -> None:
+    with zipfile.ZipFile(path) as archive:
+        batch_names = [name for name in archive.namelist() if name.endswith(".bat")]
+        if not batch_names:
+            raise ValueError(f"{path.name} has no batch files")
+        for name in batch_names:
+            data = archive.read(name)
+            if b"\r\n" not in data or b"\n" in data.replace(b"\r\n", b""):
+                raise ValueError(f"{name} does not use Windows CRLF line endings")
+
+
 def verify_full(path: Path, version: str) -> None:
     members = _members(path)
     root = "SubSentry"
@@ -91,6 +102,7 @@ def verify_full(path: Path, version: str) -> None:
     )
     if any(marker in f"/{name}" for name in members for marker in forbidden):
         raise ValueError("Full package contains runtime state or Git metadata")
+    _verify_batch_line_endings(path)
 
 
 def verify_update(path: Path, version: str) -> None:
@@ -123,6 +135,7 @@ def verify_update(path: Path, version: str) -> None:
     ]
     if forbidden:
         raise ValueError(f"Update package contains protected data: {forbidden[0]}")
+    _verify_batch_line_endings(path)
 
 
 def main() -> int:
