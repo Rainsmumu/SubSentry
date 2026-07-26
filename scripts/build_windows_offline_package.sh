@@ -13,6 +13,8 @@ WHEEL_CACHE="$ROOT/wheels/win312"
 
 PYTHON_INSTALLER="python-installer/python-3.12.10-amd64.exe"
 BOOTSTRAP_SOURCE="上海ITMC电路槽路表0407改进版.xlsx"
+# 可用环境变量指定引导槽路表的实际文件路径（打包后文件名仍为 BOOTSTRAP_SOURCE）
+BOOTSTRAP_FILE="${SUBSENTRY_BOOTSTRAP_FILE:-$ROOT/$BOOTSTRAP_SOURCE}"
 REFERENCE_DIR="海缆路由中断分析结果"
 
 APP_ITEMS=(
@@ -54,12 +56,16 @@ if [[ ! "$VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$ ]]; then
   exit 1
 fi
 
-for path in "$PYTHON_INSTALLER" "$BOOTSTRAP_SOURCE" "$REFERENCE_DIR"; do
+for path in "$PYTHON_INSTALLER" "$REFERENCE_DIR"; do
   if [[ ! -e "$ROOT/$path" ]]; then
     echo "Missing required package input: $ROOT/$path" >&2
     exit 1
   fi
 done
+if [[ ! -f "$BOOTSTRAP_FILE" ]]; then
+  echo "Missing bootstrap circuit table: $BOOTSTRAP_FILE" >&2
+  exit 1
+fi
 
 if [[ -e "$BUILD_DIR" || -e "$FULL_ZIP" || -e "$UPDATE_ZIP" ]]; then
   echo "Release output already exists for $VERSION. Use a new version." >&2
@@ -147,7 +153,7 @@ mkdir -p \
   "$FULL_ROOT/reference" \
   "$FULL_ROOT/backups" \
   "$FULL_ROOT/logs"
-cp "$ROOT/$BOOTSTRAP_SOURCE" "$FULL_ROOT/bootstrap/$BOOTSTRAP_SOURCE"
+cp "$BOOTSTRAP_FILE" "$FULL_ROOT/bootstrap/$BOOTSTRAP_SOURCE"
 cp -R "$ROOT/$REFERENCE_DIR/." "$FULL_ROOT/bootstrap/reference/"
 mkdir -p "$FULL_ROOT/python-installer"
 cp "$ROOT/$PYTHON_INSTALLER" "$FULL_ROOT/$PYTHON_INSTALLER"
