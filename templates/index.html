@@ -9,7 +9,8 @@
   (() => {
     let theme = 'light';
     try {
-      theme = localStorage.getItem('subsentry-theme') || 'light';
+      theme = new URLSearchParams(location.search).get('theme')
+        || localStorage.getItem('subsentry-theme') || 'light';
     } catch (_) {}
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
@@ -44,57 +45,71 @@
   [x-cloak] { display: none !important; }
 
   :root {
-    --green: #059669;
-    --red: #dc2626;
-    --yellow: #d97706;
-    --blue: #1677a8;
-    --page: #f4f8fa;
-    --page-deep: #e7f1f5;
-    --card: rgba(255, 255, 255, .9);
-    --surface: #f6fafb;
-    --surface-strong: #edf5f7;
-    --border: #d5e2e7;
-    --border-soft: #e6eef1;
-    --text: #162b36;
-    --text-secondary: #4f6570;
-    --text-muted: #748892;
-    --text-faint: #9aacb4;
-    --header: rgba(251, 254, 255, .9);
-    --header-border: rgba(142, 169, 180, .3);
-    --map-bg: #edf7f8;
-    --map-coast: #b9cdd4;
-    --map-ocean: #bfd8df;
-    --landing-label: #176b91;
-    --row-critical: rgba(220, 38, 38, .045);
-    --shadow: 0 14px 38px rgba(46, 83, 96, .08), 0 2px 8px rgba(46, 83, 96, .04);
-    --shadow-hover: 0 18px 44px rgba(46, 83, 96, .12);
+    --accent: #175d74;
+    --accent-strong: #124b5e;
+    --ring: rgba(23, 93, 116, .14);
+    --green: #0e8464;
+    --red: #cf4040;
+    --yellow: #a16207;
+    --blue: #2673a3;
+    --page: #f3f5f7;
+    --card: #ffffff;
+    --surface: #f7f8fa;
+    --surface-strong: #eceff2;
+    --border: #dde3e8;
+    --border-soft: #e8ecf0;
+    --text: #0e1922;
+    --text-secondary: #2b3f4d;
+    --text-muted: #48606d;
+    --text-dim: #5f747f;
+    --text-faint: #8d9aa5;
+    --accent-id: #0f6f80;
+    --info: #0e7490;
+    --orange: #c2410c;
+    --header: #ffffff;
+    --header-border: #e2e7ec;
+    --map-bg: #dce8ee;
+    --map-land: #eef1f3;
+    --map-coast: #a7bac4;
+    --map-ocean: #9db4c0;
+    --landing-label: #175d74;
+    --row-critical: rgba(207, 64, 64, .05);
+    --shadow: 0 1px 2px rgba(23, 42, 58, .05);
+    --shadow-pop: 0 6px 24px rgba(23, 42, 58, .14);
   }
 
   html[data-theme="dark"] {
-    --green: #10b981;
-    --red: #ef4444;
-    --yellow: #f59e0b;
-    --blue: #3b82f6;
-    --page: #0f1117;
-    --page-deep: #111827;
-    --card: #1a1d27;
-    --surface: #12151f;
-    --surface-strong: #22263a;
-    --border: #2e3347;
-    --border-soft: #1e2132;
-    --text: #e2e8f0;
-    --text-secondary: #cbd5e1;
-    --text-muted: #9ca3af;
-    --text-faint: #6b7280;
-    --header: rgba(20, 24, 36, .94);
-    --header-border: #2e3347;
-    --map-bg: #12151f;
-    --map-coast: #2e3347;
-    --map-ocean: #374151;
-    --landing-label: #93c5fd;
-    --row-critical: rgba(239, 68, 68, .04);
-    --shadow: 0 12px 30px rgba(0, 0, 0, .18);
-    --shadow-hover: 0 16px 38px rgba(0, 0, 0, .26);
+    --accent: #2e8aa8;
+    --accent-strong: #38a0c0;
+    --ring: rgba(79, 179, 210, .22);
+    --green: #2fbf8f;
+    --red: #e85c5c;
+    --yellow: #ddab4a;
+    --blue: #5aa3d8;
+    --page: #0e1417;
+    --card: #161d22;
+    --surface: #121a1e;
+    --surface-strong: #1d262c;
+    --border: #2a353c;
+    --border-soft: #202a30;
+    --text: #eaf1f5;
+    --text-secondary: #c6d2d9;
+    --text-muted: #a0afb9;
+    --text-dim: #8898a2;
+    --text-faint: #64727b;
+    --accent-id: #7fd4e8;
+    --info: #6cc9de;
+    --orange: #e8a06a;
+    --header: #12181d;
+    --header-border: #232e35;
+    --map-bg: #0d161b;
+    --map-land: #1e282f;
+    --map-coast: #41525c;
+    --map-ocean: #46585f;
+    --landing-label: #8fd0e4;
+    --row-critical: rgba(232, 92, 92, .055);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    --shadow-pop: 0 8px 28px rgba(0, 0, 0, .45);
   }
 
   * { box-sizing: border-box; }
@@ -102,87 +117,66 @@
   body {
     min-height: 100vh;
     margin: 0;
-    background:
-      radial-gradient(circle at 12% 2%, rgba(24, 149, 170, .10), transparent 27rem),
-      radial-gradient(circle at 88% 9%, rgba(22, 119, 168, .08), transparent 30rem),
-      linear-gradient(145deg, var(--page), var(--page-deep));
+    background: var(--page);
     color: var(--text);
-    font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
     transition: background .25s ease, color .2s ease;
   }
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    opacity: .42;
-    background-image:
-      linear-gradient(rgba(79, 126, 140, .035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(79, 126, 140, .035) 1px, transparent 1px);
-    background-size: 36px 36px;
-    mask-image: linear-gradient(to bottom, black, transparent 72%);
-  }
-  html[data-theme="dark"] body::before { opacity: .14; }
 
   .site-header {
     position: relative;
     z-index: 20;
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 15px 32px;
+    gap: 13px;
+    padding: 13px 32px;
     background: var(--header);
     border-bottom: 1px solid var(--header-border);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, .5);
-    backdrop-filter: blur(18px);
   }
-  html[data-theme="dark"] .site-header { box-shadow: none; }
   .brand-mark {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
+    border-radius: 9px;
     color: #fff;
-    background: linear-gradient(145deg, #138e9b, #17639a);
-    box-shadow: 0 8px 20px rgba(23, 99, 154, .2);
+    background: var(--accent);
   }
-  .brand-mark svg { width: 23px; height: 23px; }
+  .brand-mark svg { width: 21px; height: 21px; }
   .brand-title { color: var(--text); }
-  .brand-subtitle { color: var(--text-muted); }
+  .brand-subtitle { color: var(--text-dim); }
   .header-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   .segment-count {
     display: flex;
     align-items: center;
     gap: 7px;
-    padding: 7px 11px;
-    border: 1px solid rgba(22, 119, 168, .18);
+    padding: 6px 12px;
+    border: 1px solid var(--border);
     border-radius: 999px;
-    color: #176b91;
-    background: rgba(22, 119, 168, .07);
+    color: var(--text-muted);
+    background: var(--surface);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
   }
-  html[data-theme="dark"] .segment-count { color: #7dd3fc; background: rgba(59, 130, 246, .1); border-color: rgba(59, 130, 246, .25); }
-  .segment-count-dot { width: 6px; height: 6px; border-radius: 50%; background: #13a184; box-shadow: 0 0 0 4px rgba(19, 161, 132, .1); }
+  .segment-count-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
   .theme-toggle {
-    height: 34px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 0 11px;
+    padding: 0 12px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text-secondary);
+    background: transparent;
+    color: var(--text-muted);
     font: inherit;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(46, 83, 96, .05);
-    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
   }
-  .theme-toggle:hover { transform: translateY(-1px); border-color: var(--blue); }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
   .theme-toggle svg { width: 15px; height: 15px; }
   .theme-light-content { display: inline-flex; align-items: center; gap: 7px; }
   .theme-dark-content { display: none; }
@@ -190,91 +184,149 @@
   html[data-theme="dark"] .theme-dark-content { display: inline-flex; align-items: center; gap: 7px; }
 
   .app-shell { position: relative; z-index: 1; }
-  .main-grid { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); gap: 24px; }
+  .main-grid { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); gap: 20px; }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 10px;
     box-shadow: var(--shadow);
-    transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+    transition: background .2s ease, border-color .2s ease;
   }
-  .card:hover { box-shadow: var(--shadow-hover); }
-  .surface-muted { background: var(--surface); border: 1px solid var(--border); }
+  .surface-muted { background: var(--surface); border: 1px solid var(--border-soft); }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .02em;
+  }
+  .section-meta { font-size: 12px; font-weight: 400; color: var(--text-dim); }
   .input {
-    background: var(--surface);
+    background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
-    border-radius: 8px;
+    border-radius: 7px;
     padding: 8px 12px;
     font-size: 14px;
     outline: none;
-    transition: border .2s, box-shadow .2s, background .2s;
+    transition: border .15s, box-shadow .15s;
   }
-  .input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22, 119, 168, .12); background: var(--card); }
-  .input-uniform { height: 40px; }
-  .btn-primary { background: linear-gradient(135deg, #148898, #176da1); color: #fff; border-radius: 8px; padding: 8px 20px; font-weight: 600; font-size: 14px; cursor: pointer; transition: transform .2s, box-shadow .2s; border: none; box-shadow: 0 6px 14px rgba(23, 109, 161, .18); }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(23, 109, 161, .25); }
-  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-danger  { background: transparent; color: var(--red); border: 1px solid rgba(220, 38, 38, .45); border-radius: 7px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
-  .btn-danger:hover { background: rgba(239,68,68,.1); }
-  .btn-ghost   { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: border .2s, color .2s, background .2s; }
-  .btn-ghost:hover { border-color: var(--blue); color: var(--blue); background: var(--card); }
-  .tab-btn { padding: 7px 14px; border-radius: 6px 6px 0 0; font-size: 13px; cursor: pointer; border: 1px solid transparent; border-bottom: none; color: #6b7280; background: transparent; transition: all .2s; }
-  .tab-btn.active { background: var(--surface-strong); color: var(--text); border-color: var(--border); margin-bottom: -1px; }
-  .copy-area { font-family: "PingFang SC", "Microsoft YaHei", monospace; font-size: 13px; line-height: 1.75; white-space: pre-wrap; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 9px; padding: 15px 17px; color: var(--text-secondary); }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .input-uniform { height: 38px; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-primary:hover { background: var(--accent-strong); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-danger  { background: transparent; color: var(--red); border: 1px solid transparent; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: background .15s, border-color .15s; }
+  .btn-danger:hover { background: rgba(207, 64, 64, .08); border-color: rgba(207, 64, 64, .3); }
+  .btn-ghost   { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 7px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .tab-btn {
+    padding: 7px 2px;
+    margin: 0 10px -1px 0;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    background: transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  html[data-theme="dark"] .tab-btn.active { color: var(--accent-strong); border-bottom-color: var(--accent-strong); }
+  .copy-area { font-size: 13.5px; line-height: 1.85; white-space: pre-wrap; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 8px; padding: 14px 16px; color: var(--text); }
   .impact-row-critical { background: var(--row-critical); }
-  .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-  .badge-broken  { background: rgba(220,38,38,.11);  color: var(--red); }
-  .badge-primary { background: rgba(217,119,6,.12); color: var(--yellow); }
-  .badge-backup  { background: rgba(22,119,168,.12); color: var(--blue); }
-  .badge-suspect { background: rgba(147,51,234,.11); color: #7e22ce; }
-  .badge-normal  { background: rgba(5,150,105,.11); color: var(--green); }
-  .badge-ip      { background: rgba(5,150,105,.11); color: var(--green); }
-  .badge-iepl    { background: rgba(217,119,6,.12); color: var(--yellow); }
-  .badge-shanghai { background: rgba(8,145,178,.11); color: #087f8c; }
-  html[data-theme="dark"] .badge-suspect { color: #a78bfa; }
-  html[data-theme="dark"] .badge-shanghai { color: #22d3ee; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-broken  { background: rgba(207, 64, 64, .1);  color: var(--red); }
+  .badge-primary { background: rgba(161, 98, 7, .1);   color: var(--yellow); }
+  .badge-backup  { background: rgba(38, 115, 163, .1); color: var(--blue); }
+  .badge-suspect { background: rgba(126, 58, 194, .09); color: #7e3ac2; }
+  .badge-normal  { background: rgba(14, 132, 100, .1); color: var(--green); }
+  .badge-ip      { background: rgba(14, 132, 100, .1); color: var(--green); }
+  .badge-iepl    { background: rgba(161, 98, 7, .1);   color: var(--yellow); }
+  .badge-shanghai { background: rgba(15, 111, 128, .1); color: var(--accent-id); }
+  html[data-theme="dark"] .badge-broken  { background: rgba(232, 92, 92, .12); }
+  html[data-theme="dark"] .badge-primary { background: rgba(221, 171, 74, .1); }
+  html[data-theme="dark"] .badge-backup  { background: rgba(90, 163, 216, .12); }
+  html[data-theme="dark"] .badge-suspect { background: rgba(167, 139, 250, .12); color: #b5a3f5; }
+  html[data-theme="dark"] .badge-normal,
+  html[data-theme="dark"] .badge-ip      { background: rgba(47, 191, 143, .1); }
+  html[data-theme="dark"] .badge-iepl    { background: rgba(221, 171, 74, .1); }
+  html[data-theme="dark"] .badge-shanghai { background: rgba(127, 212, 232, .1); }
 
   /* SVG 海缆线条动画 */
-  .cable-line { stroke-width: 3; fill: none; stroke-linecap: round; transition: stroke .4s, stroke-width .3s; cursor: pointer; }
-  .cable-line.normal { stroke: var(--green); }
-  .cable-line.broken { stroke: var(--red); stroke-dasharray: 8 4; animation: dash 1s linear infinite; }
-  .cable-line:hover  { stroke-width: 5; }
+  .cable-line { stroke-width: 2; fill: none; stroke-linecap: round; transition: stroke .4s, stroke-width .3s; cursor: pointer; }
+  .cable-line.normal { stroke: var(--green); opacity: .7; }
+  .cable-line.broken { stroke: var(--red); stroke-width: 2.5; stroke-dasharray: 7 4; animation: dash 1s linear infinite; }
+  .cable-line:hover  { stroke-width: 3.5; opacity: 1; }
   @keyframes dash { to { stroke-dashoffset: -24; } }
-  .cable-map { background: var(--map-bg); border: 1px solid var(--border-soft); border-radius: 10px; }
-  .landing-dot { fill: var(--blue); }
-  .tooltip-box { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; font-size: 12px; color: var(--text); pointer-events: none; z-index: 50; min-width: 160px; box-shadow: var(--shadow-hover); }
-  .timeline-event, .timeline-event-active { border: 1px solid var(--border); }
+  .cable-map { background: var(--map-bg); border: 1px solid var(--border-soft); border-radius: 8px; }
+  .cable-map text { font-family: inherit; }
+  .map-land { fill: var(--map-land); stroke: var(--map-coast); stroke-width: .6; stroke-linejoin: round; }
+  .map-grat line { stroke: var(--map-coast); stroke-width: .35; stroke-dasharray: 2 3; opacity: .4; }
+  .map-label { fill: var(--text-muted); font-size: 9.5px; font-weight: 600; }
+  .map-sea { fill: var(--map-ocean); font-size: 8.5px; letter-spacing: 2px; }
+  .map-dir { fill: var(--text-dim); font-size: 8.5px; }
+  .map-station { fill: var(--landing-label); font-size: 9.5px; font-weight: 600; }
+  .map-legend { fill: var(--text-muted); font-size: 8.5px; }
+  .peer-dot { fill: var(--map-bg); stroke: var(--text-dim); stroke-width: 1; }
+  .cable-ext { fill: none; stroke: var(--text-faint); stroke-width: 1; stroke-dasharray: 3 4; opacity: .7; }
+  .landing-dot { fill: var(--accent); }
+  .tooltip-box { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text); pointer-events: none; z-index: 50; min-width: 160px; box-shadow: var(--shadow-pop); }
+  .timeline-event, .timeline-event-active { border: 1px solid var(--border-soft); }
   .timeline-event { background: var(--surface); }
-  .timeline-event-active { background: rgba(22, 119, 168, .10); border-color: var(--blue); box-shadow: inset 3px 0 0 var(--blue); }
+  .timeline-event:hover { border-color: var(--border); }
+  .timeline-event-active { background: var(--surface-strong); border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
   .segment-pill { transition: border-color .2s, background .2s, color .2s; }
-  .segment-normal { border-color: var(--border); background: var(--surface); color: var(--text-muted); }
-  .segment-broken { border-color: rgba(220, 38, 38, .38); background: rgba(220, 38, 38, .08); color: var(--red); }
-  .info-note { background: rgba(8, 145, 178, .055); border: 1px solid rgba(8, 145, 178, .16); color: #0e7490; }
-  html[data-theme="dark"] .info-note { color: #a5f3fc; }
-  .metric-card { background: var(--surface); border: 1px solid var(--border); }
+  .segment-normal { border-color: var(--border); background: transparent; color: var(--text-dim); }
+  .segment-normal:hover { border-color: var(--accent); color: var(--accent); }
+  .segment-broken { border-color: rgba(207, 64, 64, .4); background: rgba(207, 64, 64, .07); color: var(--red); }
+  .info-note { background: var(--surface); border: 1px solid var(--border-soft); color: var(--text-muted); }
+  .metric-card { background: var(--surface); border: 1px solid var(--border-soft); }
+  .metric-num { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; color: var(--red); }
   .text-amber-strong { color: var(--yellow); }
-  table thead tr { border-color: var(--border) !important; }
-  table tbody tr { border-color: var(--border-soft) !important; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace; font-size: .96em; }
+
+  /* 语义文本色（取代 Tailwind 灰阶工具类，明暗主题各自取值） */
+  .t-secondary { color: var(--text-secondary); }
+  .t-muted     { color: var(--text-muted); }
+  .t-dim       { color: var(--text-dim); }
+  .t-faint     { color: var(--text-faint); }
+  .t-id        { color: var(--accent-id); }
+  .t-info      { color: var(--info); }
+  .t-ok        { color: var(--green); }
+  .t-warn      { color: var(--yellow); }
+  .t-crit      { color: var(--red); }
+  .t-alert     { color: var(--orange); }
+
+  .data-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .data-table thead tr { border-bottom: 1px solid var(--border); }
+  .data-table th { white-space: nowrap; font-weight: 600; }
+  .data-table tbody tr { border-bottom: 1px solid var(--border-soft); transition: background .12s; }
+  .data-table tbody tr:hover { background: var(--surface); }
+  .data-table .t-id { font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace; font-size: 11.5px; }
+  .tab-bar { border-bottom: 1px solid var(--border); }
+
+  /* 按钮内图标 + 文字 */
+  .btn-label { display: inline-flex; align-items: center; gap: 6px; }
+  .btn-label svg { width: 14px; height: 14px; flex: none; }
 
   /* 滚动条美化 */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--page); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  /* Tailwind 工具类在亮色主题下的语义映射。 */
-  html[data-theme="light"] .text-gray-300 { color: #334b57 !important; }
-  html[data-theme="light"] .text-gray-400 { color: #566f7a !important; }
-  html[data-theme="light"] .text-gray-500 { color: #70858f !important; }
-  html[data-theme="light"] .text-gray-600 { color: #91a1a9 !important; }
-  html[data-theme="light"] .text-cyan-200 { color: #087f8c !important; }
-  html[data-theme="light"] .text-cyan-300 { color: #0e7490 !important; }
-  html[data-theme="light"] .text-green-400 { color: #047857 !important; }
-  html[data-theme="light"] .text-yellow-400 { color: #b45309 !important; }
-  html[data-theme="light"] .text-red-400 { color: #dc2626 !important; }
-  html[data-theme="light"] .text-orange-300,
-  html[data-theme="light"] .text-orange-400 { color: #c2410c !important; }
-  html[data-theme="light"] .border-gray-800 { border-color: var(--border) !important; }
 
   @media (max-width: 900px) {
     .site-header { padding: 13px 16px; }
@@ -340,33 +392,34 @@
   <!-- ── 数据源（槽路表）状态条 ── -->
   <div class="card p-4 mb-6">
     <div class="flex items-center gap-4 flex-wrap">
-      <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-cyan-500 inline-block"></span>当前数据源
-      </div>
+      <div class="section-title">当前数据源</div>
       <template x-if="dataSource">
         <div class="flex items-center gap-3 flex-wrap text-sm">
-          <span class="text-cyan-200 font-medium" x-text="dataSource.filename"></span>
+          <span class="t-id font-medium" x-text="dataSource.filename"></span>
           <span class="badge" :class="dataSource.readable ? 'badge-normal' : 'badge-broken'"
                 x-text="dataSource.readable ? '读取正常' : '读取失败'"></span>
-          <span class="text-xs text-gray-500" x-show="dataSource.circuit_count !== null"
+          <span class="text-xs t-dim" x-show="dataSource.circuit_count !== null"
                 x-text="'可分析电路 ' + dataSource.circuit_count + ' 条'"></span>
-          <span class="text-xs text-gray-500"
+          <span class="text-xs t-dim"
                 x-text="dataSource.is_uploaded
                   ? ('上传于 ' + (dataSource.uploaded_at || '').replace('T',' '))
                   : '（项目自带默认样例，未上传）'"></span>
-          <span class="text-xs text-red-400" x-show="dataSource.error" x-text="dataSource.error"></span>
+          <span class="text-xs t-crit" x-show="dataSource.error" x-text="dataSource.error"></span>
         </div>
       </template>
       <div class="ml-auto flex items-center gap-2">
         <input type="file" x-ref="upload" accept=".xlsx,.xlsm" class="hidden" @change="uploadFile($event)">
         <button class="btn-ghost" :disabled="uploading" @click="$refs.upload.click()">
-          <span x-show="!uploading">📤 上传槽路表</span>
+          <span x-show="!uploading" class="btn-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            上传槽路表
+          </span>
           <span x-show="uploading">上传中…</span>
         </button>
       </div>
     </div>
     <div x-show="uploadMsg" x-cloak class="mt-2 text-xs"
-         :class="uploadOk ? 'text-green-400' : 'text-red-400'" x-text="uploadMsg"></div>
+         :class="uploadOk ? 't-ok' : 't-crit'" x-text="uploadMsg"></div>
   </div>
 
   <div class="main-grid">
@@ -376,85 +429,76 @@
 
       <!-- 态势图 -->
       <div class="card p-4">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>实时故障态势
-        </div>
+        <div class="section-title mb-3">实时故障态势</div>
         <!-- SVG 示意图 -->
         <div class="relative" style="user-select:none">
-          <svg id="cable-svg" viewBox="0 0 380 300" class="cable-map w-full">
+          <svg id="cable-svg" viewBox="0 0 400 333" class="cable-map w-full">
 
-            <!-- 海岸线示意 -->
-            <path d="M 80 0 Q 100 80 90 150 Q 85 220 100 300" stroke="var(--map-coast)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
-            <text x="50" y="16" font-size="9" fill="var(--text-muted)" font-family="PingFang SC,Microsoft YaHei,sans-serif">中国大陆</text>
-            <text x="120" y="16" font-size="9" fill="var(--map-ocean)" font-family="PingFang SC,Microsoft YaHei,sans-serif">海洋</text>
+            <!-- 经纬网格 + 真实海岸线（Natural Earth 50m，Web Mercator 投影，构建脚本见 scripts/build_map.py） -->
+            <g class="map-grat"><line x1="29.9" y1="0" x2="29.9" y2="333.3"/><line x1="149.3" y1="0" x2="149.3" y2="333.3"/><line x1="268.7" y1="0" x2="268.7" y2="333.3"/><line x1="388.1" y1="0" x2="388.1" y2="333.3"/><line x1="0" y1="301.8" x2="400.0" y2="301.8"/><line x1="0" y1="169.8" x2="400.0" y2="169.8"/><line x1="0" y1="23.6" x2="400.0" y2="23.6"/></g>
+            <path class="map-land" d="M102.7 319.3L111.6 323.3L113.9 322.9L115.2 320.9L116.6 321.3L117.2 323.0L115.6 326.2L115.2 330.1L115.9 333.3L94.2 333.3L93.8 331.6L96.7 320.6L99.3 319.4Z M332.5 0.0L330.1 1.2L328.6 0.0Z M343.0 2.0L345.7 1.5L345.4 12.3L345.8 14.1L349.8 19.1L352.1 26.9L352.0 32.5L351.1 37.4L348.2 39.5L346.8 42.8L345.9 48.2L341.6 49.2L339.8 52.1L339.4 55.1L340.7 62.4L340.3 67.7L337.1 73.4L335.2 80.9L335.8 83.4L338.8 88.3L336.0 89.3L333.8 91.5L332.6 96.3L329.1 98.4L327.4 100.4L326.0 99.6L326.3 94.6L329.5 90.4L327.3 89.2L325.8 90.0L325.6 91.7L324.2 93.0L325.3 95.3L324.5 96.8L322.1 94.6L319.4 94.9L318.4 95.9L317.4 101.3L315.2 104.4L313.6 103.3L314.1 99.3L315.3 98.6L313.1 97.1L311.4 97.7L306.7 104.8L299.0 103.8L293.3 105.0L296.0 103.3L295.8 102.3L292.9 102.4L292.1 101.4L291.9 103.0L291.0 102.8L291.3 98.4L290.2 98.2L288.8 99.2L287.0 103.6L291.1 107.2L290.8 108.8L284.5 110.9L279.6 119.7L277.0 120.8L274.1 119.9L270.2 113.3L269.9 109.3L272.3 107.4L273.6 104.5L269.2 104.3L265.6 102.4L259.7 103.1L256.3 105.8L250.1 107.2L246.5 109.1L245.0 108.7L240.7 109.9L237.9 108.3L236.6 108.7L234.6 115.8L229.7 112.7L223.7 114.2L221.8 113.1L219.9 113.8L219.6 109.7L220.9 107.8L225.1 107.5L235.9 98.6L241.2 92.8L243.9 91.5L248.0 90.8L249.3 92.2L256.5 91.5L270.7 88.0L271.8 88.4L271.4 90.3L272.6 91.3L276.8 91.6L279.4 90.1L281.7 87.7L280.7 84.4L281.4 82.6L288.9 73.3L289.2 66.5L290.7 63.7L296.4 61.6L296.6 62.9L291.3 67.7L292.5 69.0L292.7 71.9L295.5 73.1L296.6 72.9L298.7 70.2L308.3 66.2L312.0 62.3L315.0 56.7L320.8 52.9L322.6 46.7L326.0 40.9L329.1 29.5L328.3 25.9L325.3 24.9L327.3 23.3L328.5 19.6L327.4 14.3L328.7 12.2L331.7 10.4L332.5 4.7L335.9 4.8L336.5 9.6L337.3 10.6L339.5 8.9L341.7 9.8L343.0 8.1L343.2 4.7L342.7 4.1L337.9 5.7L337.9 3.9L339.4 0.0Z M261.0 109.7L264.3 110.2L264.8 115.6L265.5 116.0L261.2 119.1L258.9 124.2L256.2 121.4L252.3 120.5L248.2 122.6L244.5 130.0L242.4 131.3L240.5 131.1L241.3 129.1L238.7 128.9L237.9 126.9L238.9 123.6L237.7 123.0L237.8 121.6L233.2 122.9L240.5 117.9L242.2 113.5L244.0 112.1L247.1 114.4L251.7 113.2L252.5 111.5L252.0 109.9L256.1 108.4Z M223.0 119.1L225.3 119.6L227.9 118.4L229.2 119.1L229.4 120.6L227.3 123.8L231.6 124.1L231.0 126.1L232.2 127.1L231.8 128.1L232.9 129.4L228.8 135.3L224.9 150.3L221.7 149.8L222.1 152.3L217.1 155.7L218.4 152.2L217.4 147.8L218.5 147.2L218.2 146.0L216.8 145.9L215.6 148.1L215.4 150.3L216.7 152.2L216.0 153.4L211.4 151.8L210.7 150.2L212.5 149.6L212.8 147.5L211.2 145.2L211.3 140.6L213.7 138.8L216.6 133.2L214.9 132.6L215.8 131.5L215.5 130.2L213.5 126.4L211.8 125.2L210.5 126.3L211.0 129.9L212.9 129.9L213.0 132.0L211.9 132.3L209.6 131.0L206.2 133.8L206.9 131.7L205.3 129.5L205.1 126.9L206.9 129.3L208.9 129.9L207.7 127.4L203.9 124.4L204.3 122.9L207.1 123.2L206.9 121.5L213.3 118.7L214.7 115.8L217.5 114.5L220.3 115.3L221.6 118.1Z M101.6 268.2L100.3 271.3L99.6 277.1L98.4 276.7L96.5 271.6L93.3 269.1L90.5 262.0L91.1 254.8L102.0 236.7L108.6 233.5L111.7 235.7L112.6 237.5L111.3 239.4L111.4 243.2L108.8 249.5L106.2 261.0Z M140.8 243.5L140.1 245.6L138.9 245.7L138.3 244.5L139.8 244.2L140.9 242.5Z M136.0 246.6L133.5 246.1L134.6 244.8L136.5 245.5Z M188.2 215.2L183.5 218.0L183.9 219.5L182.6 220.5L182.7 221.9L180.9 222.6L181.8 218.1L184.4 216.0L184.0 214.6L186.2 215.0L188.1 212.1L189.0 213.1Z M202.4 194.3L201.4 195.4L199.0 193.7L205.2 190.1L205.5 191.2L202.5 193.4Z M216.4 166.1L214.3 166.1L213.6 164.4L214.9 163.3L216.6 164.4Z M220.4 164.3L219.4 164.4L219.3 163.6L221.6 158.3Z M193.0 130.8L195.1 131.1L195.8 132.7L193.3 133.4Z M209.9 138.7L209.0 139.2L208.5 138.5L209.2 137.8L209.1 134.5L211.0 134.3L211.3 137.1Z M249.2 81.3L247.6 81.6L247.2 79.9L248.3 79.3Z M308.6 57.1L307.2 57.0L308.3 54.8L307.4 54.5L307.5 53.2L310.5 49.6L309.9 53.2L311.3 53.4L310.4 55.8Z M267.9 109.3L266.6 110.5L265.4 110.4L264.7 109.2L266.7 106.6L268.7 105.6L267.5 107.7Z M197.9 130.0L197.0 128.4L198.3 125.9L199.2 127.9Z M200.4 111.7L199.6 112.2L199.2 111.3L199.6 108.8L201.0 109.3Z M201.6 108.3L201.4 109.0L200.2 108.1L200.9 104.7L202.4 103.5L202.7 105.6Z M193.9 101.9L192.8 102.8L190.9 100.9L193.1 98.8L193.7 98.8Z M185.9 101.8L185.7 103.2L184.4 102.4L183.6 102.8L183.1 100.8L184.1 100.1Z M165.1 124.6L164.1 124.7L163.2 123.3L165.2 121.2L169.5 119.9L172.0 120.4L171.6 122.9L168.1 124.4Z M164.0 108.1L163.2 108.3L162.7 107.0L164.1 105.3L165.3 105.6L165.2 107.3Z M167.4 58.4L167.4 60.3L166.2 60.1L166.1 57.1Z M111.8 149.0L110.8 149.4L107.7 148.2L105.5 146.9L104.0 144.7L107.0 145.3Z M117.0 170.3L113.7 169.6L113.1 167.8L116.8 168.8Z M87.4 231.1L86.0 231.4L86.2 228.7L87.6 229.3Z M163.2 102.9L162.6 103.1L161.3 100.9L162.1 100.2Z M205.2 0.0L206.2 3.1L205.5 10.2L201.1 12.3L198.3 16.0L193.4 18.7L191.2 21.6L188.7 23.1L184.7 23.7L183.5 25.3L179.9 27.0L179.4 33.3L178.6 32.9L177.7 34.6L177.8 35.9L182.5 37.8L189.0 44.0L192.5 51.7L201.0 65.3L202.7 73.3L201.8 83.5L202.5 84.2L203.9 83.5L202.8 88.9L199.6 96.3L196.8 97.5L191.2 97.5L190.1 98.7L190.4 100.8L186.2 99.9L185.5 98.6L181.7 99.6L180.8 100.6L182.0 102.1L181.7 103.0L180.7 103.5L179.4 101.3L178.0 101.5L178.9 104.4L177.0 106.7L175.2 105.5L176.1 102.5L171.9 107.1L170.2 106.0L167.5 108.9L166.9 106.3L164.4 103.7L164.8 103.0L167.5 103.3L166.8 102.5L168.3 101.5L166.2 101.5L164.7 96.7L167.1 91.6L168.5 90.6L167.0 89.5L169.8 87.7L170.2 86.2L168.9 85.4L169.5 84.1L167.6 81.8L167.0 74.0L165.8 74.6L163.4 74.0L163.1 72.8L163.8 71.4L167.0 69.3L170.6 70.2L171.6 72.0L172.9 70.3L171.6 69.8L170.1 66.5L170.6 65.0L169.0 62.7L167.9 58.7L168.8 57.7L165.6 56.2L162.6 58.3L161.8 56.3L158.4 54.6L154.6 58.5L153.5 58.5L153.0 56.7L149.1 55.4L152.2 53.5L151.7 53.1L145.6 52.4L147.8 50.8L147.8 49.2L150.1 45.9L153.0 44.2L155.9 43.9L151.3 42.1L154.1 34.7L153.6 31.0L146.6 27.4L146.1 29.1L144.9 29.6L144.0 26.9L141.5 25.1L141.5 23.5L138.6 26.1L134.4 26.4L133.1 25.5L132.3 27.0L123.5 29.8L117.4 33.5L113.2 38.3L111.8 39.2L109.6 39.1L109.3 41.2L103.4 43.2L102.8 40.3L109.6 37.4L109.0 35.7L111.3 33.2L104.8 33.2L104.7 30.7L107.7 29.3L107.7 26.1L111.1 24.4L115.7 18.0L116.7 15.2L115.1 12.9L111.7 10.4L111.5 8.3L110.2 10.4L103.6 9.5L98.8 14.4L95.3 20.0L84.7 25.2L82.3 27.5L80.3 32.8L77.3 36.3L73.2 36.4L69.2 38.1L66.2 35.6L63.1 37.1L60.3 43.8L61.6 47.9L65.9 51.6L72.2 52.9L75.2 52.5L76.9 53.7L78.7 58.9L77.5 59.8L77.0 64.5L78.9 66.4L83.0 67.6L86.7 67.1L88.2 65.6L88.2 64.2L93.3 60.1L92.6 59.2L98.5 56.9L109.1 62.5L113.0 62.7L114.1 61.5L117.5 63.4L121.4 63.4L120.3 64.7L120.4 66.7L118.8 68.4L119.6 70.2L117.5 71.9L116.3 71.7L115.4 70.0L112.6 70.0L102.1 75.2L99.2 74.9L100.2 77.7L98.0 78.2L97.2 82.4L94.2 83.5L93.5 80.9L91.7 81.3L90.7 82.5L93.0 84.5L90.2 86.3L82.7 94.5L79.6 101.1L80.0 102.6L81.8 102.6L84.6 105.0L92.7 109.5L95.6 118.6L100.0 127.5L99.7 132.6L105.6 135.9L106.9 139.8L111.4 143.3L111.8 146.1L110.6 146.1L105.7 143.9L101.2 143.8L99.0 141.5L95.8 140.4L90.0 142.8L91.8 143.2L95.5 141.6L98.1 142.1L99.0 144.4L103.9 147.1L109.4 151.5L110.9 153.6L112.0 157.1L106.5 158.8L101.5 162.1L99.4 164.9L94.9 164.4L91.9 166.4L95.5 165.6L97.1 167.9L100.4 167.6L104.6 165.6L106.7 166.6L109.6 170.1L114.4 171.6L107.5 176.9L112.7 175.2L112.5 181.7L110.1 180.0L107.3 180.9L106.8 181.7L109.6 184.1L107.9 184.4L109.4 185.5L107.2 188.4L108.8 193.1L107.6 192.7L104.7 194.1L104.1 192.4L103.2 192.7L101.0 196.6L98.5 196.9L99.5 198.5L96.6 202.7L96.8 205.0L92.9 209.2L90.6 214.9L89.2 216.1L88.1 215.8L87.5 212.6L86.1 214.2L84.6 213.4L85.2 215.6L87.0 216.6L88.1 219.4L83.1 223.2L79.3 222.3L81.6 224.6L85.0 223.8L84.1 229.3L85.0 232.0L79.8 231.2L79.6 232.4L81.0 234.1L77.3 234.4L76.5 238.1L73.3 239.3L74.3 240.5L73.5 242.1L69.2 242.7L66.7 242.0L65.7 243.9L63.8 244.0L64.2 245.1L66.0 245.3L66.3 247.0L63.8 250.1L62.6 250.0L61.2 252.4L59.3 252.3L58.7 255.2L58.1 255.6L57.2 254.0L54.7 255.7L52.7 254.8L52.1 257.4L49.3 258.7L50.1 259.7L48.2 260.9L47.4 264.0L44.8 263.5L43.7 264.7L40.0 265.8L37.5 265.2L35.8 266.9L32.2 265.6L28.1 268.2L26.9 268.1L25.7 266.4L24.5 269.4L22.0 268.5L21.1 269.2L21.9 271.1L21.1 272.4L16.7 271.1L18.1 269.6L15.9 268.3L13.4 265.1L13.4 261.6L12.2 261.9L11.3 262.5L11.2 264.0L9.9 264.4L12.6 268.5L12.5 273.3L7.7 275.2L7.0 273.5L5.4 277.4L3.7 276.9L1.0 279.1L0.0 278.6L0.0 0.0Z"/>
 
-            <!-- 崇明登陆站 -->
-            <circle cx="88" cy="100" r="7" class="landing-dot"/>
-            <circle cx="88" cy="100" r="11" fill="none" stroke="var(--blue)" stroke-width="1" opacity="0.4"/>
-            <text x="18" y="97" font-size="10" fill="var(--landing-label)" font-weight="bold" font-family="PingFang SC,Microsoft YaHei,sans-serif">崇明</text>
-            <text x="18" y="109" font-size="9" fill="var(--text-muted)" font-family="PingFang SC,Microsoft YaHei,sans-serif">登陆站</text>
+            <!-- 地名标注 -->
+            <text class="map-label" x="24" y="115">中国大陆</text>
+            <text class="map-label" x="288" y="74">日本</text>
+            <text class="map-label" x="172" y="70">韩国</text>
+            <text class="map-label" x="124" y="260">台湾</text>
+            <text class="map-label" x="27" y="286">香港</text>
+            <text class="map-sea" x="118" y="92">黄 海</text>
+            <text class="map-sea" x="142" y="182">东 海</text>
+            <text class="map-sea" x="330" y="234">太 平 洋</text>
 
-            <!-- 南汇登陆站 -->
-            <circle cx="88" cy="210" r="7" class="landing-dot"/>
-            <circle cx="88" cy="210" r="11" fill="none" stroke="var(--blue)" stroke-width="1" opacity="0.4"/>
-            <text x="18" y="207" font-size="10" fill="var(--landing-label)" font-weight="bold" font-family="PingFang SC,Microsoft YaHei,sans-serif">南汇</text>
-            <text x="18" y="219" font-size="9" fill="var(--text-muted)" font-family="PingFang SC,Microsoft YaHei,sans-serif">登陆站</text>
-
-            <!-- 崇明出口海缆（6条）-->
-            <!-- TPE S1S  → 日本/美国方向（右上） -->
-            <path id="seg-TPE_S1S"   d="M 95 96  Q 200 60  340 40"  class="cable-line normal"
-                  @mouseenter="showTip($event,'TPE_S1S')"   @mouseleave="hideTip()"
-                  @click="selectCable('TPE_S1S')"/>
-            <text x="345" y="38"  font-size="9" fill="var(--text-muted)" font-family="sans-serif">日/美</text>
-
-            <!-- TPE S4   → 台湾方向（右偏上） -->
-            <path id="seg-TPE_S4"    d="M 95 100 Q 200 85  340 80"  class="cable-line normal"
-                  @mouseenter="showTip($event,'TPE_S4')"    @mouseleave="hideTip()"
-                  @click="selectCable('TPE_S4')"/>
-            <text x="345" y="78"  font-size="9" fill="var(--text-muted)" font-family="sans-serif">台/日</text>
-
-            <!-- APCN2 S3 → 香港/美国（右中偏上） -->
-            <path id="seg-APCN2_S3"  d="M 95 103 Q 200 108 340 115" class="cable-line normal"
-                  @mouseenter="showTip($event,'APCN2_S3')"  @mouseleave="hideTip()"
-                  @click="selectCable('APCN2_S3')"/>
-            <text x="345" y="113" font-size="9" fill="var(--text-muted)" font-family="sans-serif">港/美</text>
-
-            <!-- APCN2 S4A→ 韩国/日本（右中） -->
-            <path id="seg-APCN2_S4A" d="M 95 107 Q 200 130 340 148" class="cable-line normal"
+            <!-- 海缆段落（真实登陆点走向，点击选择、悬停查看详情） -->
+            <path id="seg-APG_S3" d="M111.6 148.2C117.5 143.4 132.5 127.4 146.9 119.2C161.2 111.0 189.2 102.3 197.6 98.9" class="cable-line normal"
+                  @mouseenter="showTip($event,'APG_S3')" @mouseleave="hideTip()"
+                  @click="selectCable('APG_S3')"/>
+            <path id="seg-APCN2_S4A" d="M111.6 148.2C116.3 145.1 125.4 137.4 139.7 129.2C154.0 121.0 188.0 104.0 197.6 98.9" class="cable-line normal"
                   @mouseenter="showTip($event,'APCN2_S4A')" @mouseleave="hideTip()"
                   @click="selectCable('APCN2_S4A')"/>
-            <text x="345" y="147" font-size="9" fill="var(--text-muted)" font-family="sans-serif">韩/日</text>
-
-            <!-- APG S3   → 韩国/日本（右中偏下） -->
-            <path id="seg-APG_S3"    d="M 95 109 Q 200 150 340 178" class="cable-line normal"
-                  @mouseenter="showTip($event,'APG_S3')"    @mouseleave="hideTip()"
-                  @click="selectCable('APG_S3')"/>
-            <text x="345" y="177" font-size="9" fill="var(--text-muted)" font-family="sans-serif">韩/日</text>
-
-            <!-- NCP S1.1 → 日本/美国（右偏下往崇明） -->
-            <path id="seg-NCP_S1_1"  d="M 95 112 Q 200 165 340 200" class="cable-line normal"
-                  @mouseenter="showTip($event,'NCP_S1_1')"  @mouseleave="hideTip()"
+            <path id="seg-NCP_S1_1" d="M111.6 148.2C124.9 147.4 165.9 145.8 191.0 143.3C216.2 140.9 240.0 140.6 262.7 133.4C285.4 126.3 316.4 105.9 327.2 100.4" class="cable-line normal"
+                  @mouseenter="showTip($event,'NCP_S1_1')" @mouseleave="hideTip()"
                   @click="selectCable('NCP_S1_1')"/>
-            <text x="345" y="199" font-size="9" fill="var(--text-muted)" font-family="sans-serif">日/美</text>
-
-            <!-- 南汇出口海缆（2条）-->
-            <!-- APG S4   → 日本/新加坡 -->
-            <path id="seg-APG_S4"    d="M 95 206 Q 200 215 340 220" class="cable-line normal"
-                  @mouseenter="showTip($event,'APG_S4')"    @mouseleave="hideTip()"
-                  @click="selectCable('APG_S4')"/>
-            <text x="345" y="219" font-size="9" fill="var(--text-muted)" font-family="sans-serif">日/新</text>
-
-            <!-- NCP S3   → 日本/美国 -->
-            <path id="seg-NCP_S3"    d="M 95 214 Q 200 240 340 255" class="cable-line normal"
-                  @mouseenter="showTip($event,'NCP_S3')"    @mouseleave="hideTip()"
+            <path id="seg-TPE_S1S" d="M111.6 148.2C122.9 150.2 155.9 160.0 179.1 160.1C202.3 160.2 228.1 156.5 250.7 148.9C273.4 141.4 302.5 123.0 315.2 114.9C328.0 106.8 325.2 102.8 327.2 100.4" class="cable-line normal"
+                  @mouseenter="showTip($event,'TPE_S1S')" @mouseleave="hideTip()"
+                  @click="selectCable('TPE_S1S')"/>
+            <path id="seg-NCP_S3" d="M112.8 157.6C122.9 161.5 148.2 179.9 173.1 180.8C198.1 181.6 236.2 173.1 262.7 162.9C289.2 152.6 319.9 132.5 331.9 119.2C344.0 105.8 334.4 88.9 334.9 82.8" class="cable-line normal"
+                  @mouseenter="showTip($event,'NCP_S3')" @mouseleave="hideTip()"
                   @click="selectCable('NCP_S3')"/>
-            <text x="345" y="254" font-size="9" fill="var(--text-muted)" font-family="sans-serif">日/美</text>
+            <path id="seg-TPE_S4" d="M111.6 148.2C113.3 155.2 121.8 175.4 121.8 190.3C121.8 205.2 113.5 229.6 111.9 237.5" class="cable-line normal"
+                  @mouseenter="showTip($event,'TPE_S4')" @mouseleave="hideTip()"
+                  @click="selectCable('TPE_S4')"/>
+            <path id="seg-APCN2_S3" d="M111.6 148.2C113.1 157.3 127.5 183.7 120.6 202.5C113.7 221.2 87.0 249.0 70.4 260.7C53.9 272.3 29.7 270.6 21.5 272.6" class="cable-line normal"
+                  @mouseenter="showTip($event,'APCN2_S3')" @mouseleave="hideTip()"
+                  @click="selectCable('APCN2_S3')"/>
+            <path id="seg-APG_S4" d="M112.8 157.6C111.9 166.9 116.3 191.3 107.5 213.2C98.6 235.1 75.8 269.0 59.7 289.0C43.6 309.0 18.9 325.9 10.7 333.3" class="cable-line normal"
+                  @mouseenter="showTip($event,'APG_S4')" @mouseleave="hideTip()"
+                  @click="selectCable('APG_S4')"/>
+
+            <!-- 境外延伸方向 -->
+            <path class="cable-ext" d="M333 96 Q365 88 398 82"/>
+            <text class="map-dir" text-anchor="end" x="396" y="76">美国方向</text>
+            <text class="map-dir" x="63" y="300">新加坡方向</text>
+
+            <!-- 对端登陆点 -->
+            <circle class="peer-dot" cx="197.6" cy="98.9" r="2.2"/>
+            <circle class="peer-dot" cx="327.2" cy="100.4" r="2.2"/>
+            <circle class="peer-dot" cx="334.9" cy="82.8" r="2.2"/>
+            <circle class="peer-dot" cx="111.9" cy="237.5" r="2.2"/>
+            <circle class="peer-dot" cx="21.5" cy="272.6" r="2.2"/>
+
+            <!-- 上海登陆站 -->
+            <circle cx="111.6" cy="148.2" r="3.4" class="landing-dot"/>
+            <circle cx="111.6" cy="148.2" r="6.4" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
+            <circle cx="112.8" cy="157.6" r="3.4" class="landing-dot"/>
+            <circle cx="112.8" cy="157.6" r="6.4" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
+            <text class="map-station" text-anchor="end" x="103" y="146">崇明</text>
+            <text class="map-station" text-anchor="end" x="104" y="164">南汇</text>
 
             <!-- 图例 -->
-            <line x1="16" y1="272" x2="40" y2="272" stroke="var(--green)" stroke-width="2.5"/>
-            <text x="44" y="275" font-size="9" fill="var(--text-muted)" font-family="PingFang SC,sans-serif">正常</text>
-            <line x1="80" y1="272" x2="104" y2="272" stroke="var(--red)" stroke-width="2.5" stroke-dasharray="5 3"/>
-            <text x="108" y="275" font-size="9" fill="var(--text-muted)" font-family="PingFang SC,sans-serif">中断</text>
+            <line x1="298" y1="322" x2="316" y2="322" stroke="var(--green)" stroke-width="2.2"/>
+            <text class="map-legend" x="320" y="325">正常</text>
+            <line x1="344" y1="322" x2="362" y2="322" stroke="var(--red)" stroke-width="2.2" stroke-dasharray="5 3"/>
+            <text class="map-legend" x="366" y="325">中断</text>
           </svg>
 
           <!-- Tooltip -->
@@ -462,12 +506,12 @@
                class="tooltip-box"
                :style="`top:${tooltip.y}px;left:${tooltip.x}px`">
             <div class="font-bold text-sm mb-1" x-text="tooltip.name"></div>
-            <div class="text-gray-400 text-xs" x-text="tooltip.route"></div>
-            <div class="text-gray-400 text-xs" x-text="tooltip.direction"></div>
+            <div class="t-muted text-xs" x-text="tooltip.route"></div>
+            <div class="t-muted text-xs" x-text="tooltip.direction"></div>
             <div class="mt-1">
               <span :class="tooltip.status==='broken'?'badge badge-broken':'badge badge-normal'"
-                    x-text="tooltip.status==='broken'?'🔴 中断':'🟢 正常'"></span>
-              <span x-show="tooltip.fault_time" class="text-gray-500 text-xs ml-2" x-text="tooltip.fault_time"></span>
+                    x-text="tooltip.status==='broken'?'中断':'正常'"></span>
+              <span x-show="tooltip.fault_time" class="t-dim text-xs ml-2" x-text="tooltip.fault_time"></span>
             </div>
           </div>
         </div>
@@ -488,12 +532,10 @@
 
       <!-- 故障录入表单 -->
       <div class="card p-4">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>故障录入
-        </div>
+        <div class="section-title mb-3">故障录入</div>
         <div class="flex flex-col gap-3">
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">故障海缆段落 *</label>
+            <label class="text-xs t-dim mb-1 block">故障海缆段落 *</label>
             <select x-model="form.cable_id" class="input input-uniform w-full">
               <option value="">— 请选择 —</option>
               <template x-for="c in cables" :key="c.id">
@@ -502,12 +544,15 @@
             </select>
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">中断时间 *</label>
+            <label class="text-xs t-dim mb-1 block">中断时间 *</label>
             <input x-model="form.fault_time" type="datetime-local" class="input input-uniform w-full">
           </div>
           <button class="btn-primary w-full" :disabled="loading || !form.cable_id || !form.fault_time"
                   @click="submitFault()">
-            <span x-show="!loading">📡 生成通报</span>
+            <span x-show="!loading" class="btn-label justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              生成通报
+            </span>
             <span x-show="loading">分析中…</span>
           </button>
         </div>
@@ -515,10 +560,9 @@
 
       <!-- 故障时间线 -->
       <div class="card p-4" x-show="events.length > 0">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+        <div class="section-title mb-3">
           故障事件时间线 (<span x-text="events.length"></span>)
-          <span class="ml-auto text-gray-600 font-normal normal-case text-xs">点击查看通报</span>
+          <span class="ml-auto section-meta">点击查看通报</span>
         </div>
         <div class="flex flex-col gap-2">
           <template x-for="ev in events" :key="ev.id">
@@ -526,9 +570,9 @@
                  :class="result && result.event_id === ev.id ? 'timeline-event-active' : 'timeline-event'"
                  @click="loadFaultReport(ev.id)">
               <div>
-                <span class="text-red-400 font-semibold text-sm"
+                <span class="t-crit font-semibold text-sm"
                       x-text="cableLabel(ev.cable_id)"></span>
-                <span class="text-gray-500 text-xs ml-2" x-text="formatTime(ev.fault_time)"></span>
+                <span class="t-dim text-xs ml-2" x-text="formatTime(ev.fault_time)"></span>
               </div>
               <button class="btn-danger" @click.stop="removeFault(ev.id)">解除</button>
             </div>
@@ -541,24 +585,25 @@
     <div class="flex flex-col gap-5">
 
       <!-- 空态提示 -->
-      <div x-show="!result" class="card p-12 text-center text-gray-600">
-        <div style="font-size:40px" class="mb-3">📡</div>
-        <div>在左侧选择故障海缆和时间，点击「生成通报」</div>
+      <div x-show="!result" class="card p-12 text-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px;margin:0 auto 12px;display:block">
+          <path d="M4 10a7.31 7.31 0 0 0 10 10Z"/><path d="m9 15 3-3"/><path d="M17 13a6 6 0 0 0-6-6"/><path d="M21 13A10 10 0 0 0 11 3"/>
+        </svg>
+        <div class="t-dim">在左侧选择故障海缆和时间，点击「生成通报」</div>
       </div>
 
       <!-- 通报文本 -->
       <div class="card" x-show="result" x-cloak>
         <div class="px-4 pt-4 pb-0">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+          <div class="section-title mb-3">
             通报文本
-            <span class="ml-auto text-gray-600 font-normal normal-case text-xs"
+            <span class="ml-auto section-meta"
                   x-text="result ? cableLabel(result.cable_id) + ' · ' + formatTime(result.fault_time) : ''"></span>
           </div>
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-1 px-4 border-b border-gray-800">
+        <div class="flex gap-1 px-4 tab-bar">
           <button class="tab-btn" :class="reportTab==='first_email'&&'active'"   @click="reportTab='first_email'">首报·邮件</button>
           <button class="tab-btn" :class="reportTab==='first_sms'&&'active'"     @click="reportTab='first_sms'">首报·短信</button>
           <button class="tab-btn" :class="reportTab==='follow_email'&&'active'"  @click="reportTab='follow_email'">续报·邮件</button>
@@ -571,33 +616,31 @@
             <button class="btn-ghost" @click="copyText(result.reports[reportTab])">
               <span x-text="copied ? '已复制' : '复制'"></span>
             </button>
-            <span class="text-xs text-gray-600 self-center ml-1">点击复制后直接粘贴到邮件或微信</span>
+            <span class="text-xs t-faint self-center ml-1">点击复制后直接粘贴到邮件或微信</span>
           </div>
         </div>
       </div>
 
       <!-- 业务影响统计 -->
       <div class="card p-4" x-show="result" x-cloak>
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-purple-500 inline-block"></span>业务影响统计
-        </div>
+        <div class="section-title mb-3">业务影响统计</div>
 
         <!-- 汇总数字 -->
         <div class="grid grid-cols-2 gap-3 mb-4" x-show="result">
-          <div class="surface-muted p-3 rounded">
-            <div class="text-xs text-gray-500 mb-1">IP带宽损失（中断）</div>
-            <div class="text-xl font-bold text-green-400" x-text="result ? formatGbps(result.summary.ip_loss_gbps) : '--'"></div>
-            <div class="text-xs text-gray-600 mt-0.5" x-text="result ? '上海落地 ' + formatGbps(result.summary.ip_loss_sh_gbps) : ''"></div>
+          <div class="surface-muted p-3 rounded-lg">
+            <div class="text-xs t-dim mb-1">IP带宽损失（中断）</div>
+            <div class="metric-num" x-text="result ? formatGbps(result.summary.ip_loss_gbps) : '--'"></div>
+            <div class="text-xs t-faint mt-0.5" x-text="result ? '上海落地 ' + formatGbps(result.summary.ip_loss_sh_gbps) : ''"></div>
           </div>
-          <div class="surface-muted p-3 rounded">
-            <div class="text-xs text-gray-500 mb-1">IEPL专线中断（无保护/双断）</div>
-            <div class="text-xl font-bold text-yellow-400" x-text="result ? result.summary.iepl_broken + ' 条' : '--'"></div>
-            <div class="text-xs text-gray-600 mt-0.5" x-text="result ? '上海落地 ' + result.summary.iepl_broken_sh + ' 条' : ''"></div>
+          <div class="surface-muted p-3 rounded-lg">
+            <div class="text-xs t-dim mb-1">IEPL专线中断（无保护/双断）</div>
+            <div class="metric-num" x-text="result ? result.summary.iepl_broken + ' 条' : '--'"></div>
+            <div class="text-xs t-faint mt-0.5" x-text="result ? '上海落地 ' + result.summary.iepl_broken_sh + ' 条' : ''"></div>
           </div>
         </div>
 
         <!-- IEPL / IP 电路详情 Tabs -->
-        <div class="flex gap-1 border-b border-gray-800 mb-3">
+        <div class="flex gap-1 tab-bar mb-3">
           <button class="tab-btn text-xs" :class="circuitTab==='iepl'&&'active'" @click="circuitTab='iepl'">
             客户专线 IEPL (<span x-text="result ? result.iepl.length : 0"></span>)
           </button>
@@ -608,37 +651,37 @@
 
         <!-- 电路表格 -->
         <div x-show="result && currentCircuits().length === 0"
-             class="text-center text-gray-600 py-6 text-sm">暂无受影响电路</div>
+             class="text-center t-faint py-6 text-sm">暂无受影响电路</div>
 
         <div class="overflow-x-auto" x-show="result">
-          <table class="w-full text-xs" style="border-collapse:collapse">
+          <table class="data-table text-xs">
             <thead>
-              <tr style="border-bottom:1px solid #2e3347">
-                <th class="text-left text-gray-500 py-2 pr-2 font-medium">#</th>
-                <th class="text-left text-gray-500 py-2 pr-2 font-medium">影响类型</th>
-                <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户名称</th>
-                <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                <th class="text-left text-gray-500 py-2 pr-2 font-medium">A端</th>
-                <th class="text-left text-gray-500 py-2 pr-2 font-medium">Z端</th>
-                <th class="text-left text-gray-500 py-2 pr-3 font-medium">带宽</th>
-                <th class="text-left text-gray-500 py-2 font-medium">第一路由</th>
+              <tr>
+                <th class="text-left t-dim py-2 pr-2 font-medium">#</th>
+                <th class="text-left t-dim py-2 pr-2 font-medium">影响类型</th>
+                <th class="text-left t-dim py-2 pr-2 font-medium">客户名称</th>
+                <th class="text-left t-dim py-2 pr-2 font-medium">国际电路名</th>
+                <th class="text-left t-dim py-2 pr-2 font-medium">A端</th>
+                <th class="text-left t-dim py-2 pr-2 font-medium">Z端</th>
+                <th class="text-left t-dim py-2 pr-3 font-medium">带宽</th>
+                <th class="text-left t-dim py-2 font-medium">第一路由</th>
               </tr>
             </thead>
             <tbody>
               <template x-for="(c, i) in currentCircuits()" :key="c.circuit_id + '_' + i">
-                <tr :class="c.is_broken ? 'impact-row-critical' : ''" style="border-bottom:1px solid #1e2132">
-                  <td class="py-2 pr-2 text-gray-600" x-text="i+1"></td>
-                  <td class="py-2 pr-2">
+                <tr :class="c.is_broken ? 'impact-row-critical' : ''">
+                  <td class="py-2 pr-2 t-faint" x-text="i+1"></td>
+                  <td class="py-2 pr-2 whitespace-nowrap">
                     <span :class="impactBadgeClass(c.impact_status)" class="badge"
                           x-text="c.impact_status"></span>
                     <span x-show="c.is_shanghai" class="badge badge-shanghai ml-1">沪</span>
                   </td>
-                  <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
-                  <td class="py-2 pr-2 text-cyan-200 font-medium" x-text="c.circuit_id || '—'"></td>
-                  <td class="py-2 pr-2 text-gray-400" x-text="c.site_a"></td>
-                  <td class="py-2 pr-2 text-gray-400" x-text="c.site_b"></td>
-                  <td class="py-2 pr-3 font-semibold text-yellow-400" x-text="c.bandwidth"></td>
-                  <td class="py-2 text-gray-500" x-text="c.route1"></td>
+                  <td class="py-2 pr-2 font-medium" x-text="c.customer || '—'"></td>
+                  <td class="py-2 pr-2 t-id" x-text="c.circuit_id || '—'"></td>
+                  <td class="py-2 pr-2 t-muted whitespace-nowrap" x-text="c.site_a"></td>
+                  <td class="py-2 pr-2 t-muted whitespace-nowrap" x-text="c.site_b"></td>
+                  <td class="py-2 pr-3 font-semibold t-warn whitespace-nowrap" x-text="c.bandwidth"></td>
+                  <td class="py-2 t-dim" x-text="c.route1"></td>
                 </tr>
               </template>
             </tbody>
@@ -648,33 +691,38 @@
         <!-- 下载 Excel + 人工对比 -->
         <div class="mt-4 flex items-center gap-3">
           <button class="btn-primary" @click="downloadExcel()" x-show="result">
-            📥 下载业务影响统计表 (.xlsx)
+            <span class="btn-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              下载业务影响统计表 (.xlsx)
+            </span>
           </button>
           <button class="btn-ghost" @click="loadComparison()" :disabled="compareLoading" x-show="result">
-            <span x-show="!compareLoading">🔍 系统结果 vs 人工结果</span>
+            <span x-show="!compareLoading" class="btn-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+              系统结果 vs 人工结果
+            </span>
             <span x-show="compareLoading">对比中…</span>
           </button>
-          <span class="text-xs text-gray-600">续报邮件附件</span>
+          <span class="text-xs t-faint">续报邮件附件</span>
         </div>
       </div>
 
       <!-- 系统 vs 人工 对比 -->
       <div class="card p-4" x-show="comparison" x-cloak>
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-cyan-500 inline-block"></span>
+        <div class="section-title mb-3">
           系统结果 vs 人工结果
-          <span class="ml-auto text-gray-600 font-normal normal-case text-xs"
+          <span class="ml-auto section-meta"
                 x-text="comparison && comparison.cable_label"></span>
         </div>
 
         <template x-if="comparison && comparison.error">
-          <div class="text-center text-gray-500 py-4 text-sm" x-text="comparison.error"></div>
+          <div class="text-center t-dim py-4 text-sm" x-text="comparison.error"></div>
         </template>
 
         <template x-if="comparison && comparison.manual_available">
           <div>
-            <div class="text-xs text-gray-500 mb-3">
-              人工清单文件：<span class="text-gray-400" x-text="comparison.manual_file"></span>
+            <div class="text-xs t-dim mb-3">
+              人工清单文件：<span class="t-muted" x-text="comparison.manual_file"></span>
             </div>
             <div class="info-note text-xs mb-3 px-3 py-2 rounded">
               <span x-text="comparison.scope_note"></span>
@@ -682,35 +730,35 @@
             <!-- 汇总数量 -->
             <div class="grid gap-2 mb-4" style="grid-template-columns:repeat(auto-fit,minmax(105px,1fr))">
               <div class="metric-card p-2 rounded text-center">
-                <div class="text-lg font-bold text-green-400" x-text="comparison.summary.matched"></div>
-                <div class="text-xs text-gray-500">一致</div>
+                <div class="text-lg font-bold t-ok" x-text="comparison.summary.matched"></div>
+                <div class="text-xs t-dim">一致</div>
               </div>
               <div class="metric-card p-2 rounded text-center">
-                <div class="text-lg font-bold text-yellow-400" x-text="comparison.summary.system_only"></div>
-                <div class="text-xs text-gray-500">系统多出</div>
+                <div class="text-lg font-bold t-warn" x-text="comparison.summary.system_only"></div>
+                <div class="text-xs t-dim">系统多出</div>
               </div>
               <div class="metric-card p-2 rounded text-center">
-                <div class="text-lg font-bold text-red-400" x-text="comparison.summary.manual_only"></div>
-                <div class="text-xs text-gray-500">系统漏掉</div>
+                <div class="text-lg font-bold t-crit" x-text="comparison.summary.manual_only"></div>
+                <div class="text-xs t-dim">系统漏掉</div>
               </div>
               <div class="metric-card p-2 rounded text-center">
-                <div class="text-lg font-bold text-orange-400" x-text="comparison.summary.status_mismatch"></div>
-                <div class="text-xs text-gray-500">状态不一致</div>
+                <div class="text-lg font-bold t-alert" x-text="comparison.summary.status_mismatch"></div>
+                <div class="text-xs t-dim">状态不一致</div>
               </div>
               <div class="metric-card p-2 rounded text-center">
-                <div class="text-lg font-bold text-cyan-300" x-text="comparison.summary.unverified"></div>
-                <div class="text-xs text-gray-500">IP 待核验</div>
+                <div class="text-lg font-bold t-info" x-text="comparison.summary.unverified"></div>
+                <div class="text-xs t-dim">IP 待核验</div>
               </div>
               <div class="metric-card p-2 rounded text-center">
-                <div class="text-lg font-bold text-gray-300">
+                <div class="text-lg font-bold t-secondary">
                   <span x-text="comparison.summary.system_count"></span>/<span x-text="comparison.summary.manual_count"></span>
                 </div>
-                <div class="text-xs text-gray-500">系统/人工</div>
+                <div class="text-xs t-dim">系统/人工</div>
               </div>
             </div>
 
             <!-- 对比明细 Tabs -->
-            <div class="flex flex-wrap gap-1 border-b border-gray-800 mb-3">
+            <div class="flex flex-wrap gap-1 tab-bar mb-3">
               <button class="tab-btn text-xs" :class="compareTab==='system_only'&&'active'" @click="compareTab='system_only'">
                 系统多出 (<span x-text="comparison.system_only.length"></span>)
               </button>
@@ -730,23 +778,23 @@
 
             <!-- 系统多出 -->
             <div x-show="compareTab==='system_only'" class="overflow-x-auto">
-              <div x-show="comparison.system_only.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
-              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.system_only.length>0">
-                <thead><tr style="border-bottom:1px solid #2e3347">
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">带宽</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">类型</th>
-                  <th class="text-left text-gray-500 py-2 font-medium">可能原因</th>
+              <div x-show="comparison.system_only.length===0" class="text-center t-faint py-4 text-sm">无</div>
+              <table class="data-table text-xs" x-show="comparison.system_only.length>0">
+                <thead><tr>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">客户</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">带宽</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">类型</th>
+                  <th class="text-left t-dim py-2 font-medium">可能原因</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(c,i) in comparison.system_only" :key="'so'+i">
-                    <tr style="border-bottom:1px solid #1e2132">
-                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
-                      <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
-                      <td class="py-2 pr-2 text-gray-400" x-text="c.type"></td>
-                      <td class="py-2 text-gray-500" x-text="c.reason"></td>
+                    <tr>
+                      <td class="py-2 pr-2 t-id" x-text="c.circuit_id || '—'"></td>
+                      <td class="py-2 pr-2 t-secondary" x-text="c.customer || '—'"></td>
+                      <td class="py-2 pr-2 font-medium t-warn whitespace-nowrap" x-text="c.bandwidth"></td>
+                      <td class="py-2 pr-2 t-muted" x-text="c.type"></td>
+                      <td class="py-2 t-dim" x-text="c.reason"></td>
                     </tr>
                   </template>
                 </tbody>
@@ -755,27 +803,27 @@
 
             <!-- 同一电路已命中，但影响状态不同 -->
             <div x-show="compareTab==='status_mismatch'" class="overflow-x-auto">
-              <div x-show="comparison.status_mismatch.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
-              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.status_mismatch.length>0">
-                <thead><tr style="border-bottom:1px solid #2e3347">
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">人工状态</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">系统状态</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">人工路由</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">系统路由</th>
-                  <th class="text-left text-gray-500 py-2 font-medium">差异说明</th>
+              <div x-show="comparison.status_mismatch.length===0" class="text-center t-faint py-4 text-sm">无</div>
+              <table class="data-table text-xs" x-show="comparison.status_mismatch.length>0">
+                <thead><tr>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">客户</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">人工状态</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">系统状态</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">人工路由</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">系统路由</th>
+                  <th class="text-left t-dim py-2 font-medium">差异说明</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(c,i) in comparison.status_mismatch" :key="'sm'+i">
-                    <tr style="border-bottom:1px solid #1e2132;vertical-align:top">
-                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-300"><span class="badge" x-text="c.manual_status"></span></td>
+                    <tr style="vertical-align:top">
+                      <td class="py-2 pr-2 t-id" x-text="c.circuit_id || '—'"></td>
+                      <td class="py-2 pr-2 t-secondary" x-text="c.customer || '—'"></td>
+                      <td class="py-2 pr-2 t-secondary"><span class="badge" x-text="c.manual_status"></span></td>
                       <td class="py-2 pr-2"><span class="badge" :class="impactBadgeClass(c.system_status)" x-text="c.system_status"></span></td>
-                      <td class="py-2 pr-2 text-gray-400" x-text="c.manual_routes.join(' / ') || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-400" x-text="c.system_routes.join(' / ') || '—'"></td>
-                      <td class="py-2 text-orange-300" x-text="c.reason"></td>
+                      <td class="py-2 pr-2 t-muted" x-text="c.manual_routes.join(' / ') || '—'"></td>
+                      <td class="py-2 pr-2 t-muted" x-text="c.system_routes.join(' / ') || '—'"></td>
+                      <td class="py-2 t-alert" x-text="c.reason"></td>
                     </tr>
                   </template>
                 </tbody>
@@ -784,25 +832,25 @@
 
             <!-- 无人工 IP 基准，保留系统识别依据供人工核验 -->
             <div x-show="compareTab==='unverified'" class="overflow-x-auto">
-              <div x-show="comparison.unverified.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
-              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.unverified.length>0">
-                <thead><tr style="border-bottom:1px solid #2e3347">
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户/用途</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">带宽</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">影响</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">路由</th>
-                  <th class="text-left text-gray-500 py-2 font-medium">核验说明</th>
+              <div x-show="comparison.unverified.length===0" class="text-center t-faint py-4 text-sm">无</div>
+              <table class="data-table text-xs" x-show="comparison.unverified.length>0">
+                <thead><tr>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">客户/用途</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">带宽</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">影响</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">路由</th>
+                  <th class="text-left t-dim py-2 font-medium">核验说明</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(c,i) in comparison.unverified" :key="'uv'+i">
-                    <tr style="border-bottom:1px solid #1e2132">
-                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
-                      <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
-                      <td class="py-2 pr-2 text-gray-300" x-text="c.impact_status"></td>
-                      <td class="py-2 pr-2 text-gray-400" x-text="c.routes.join(' / ') || '—'"></td>
-                      <td class="py-2 text-gray-500" x-text="c.reason"></td>
+                    <tr>
+                      <td class="py-2 pr-2 t-id" x-text="c.circuit_id || '—'"></td>
+                      <td class="py-2 pr-2 t-secondary" x-text="c.customer || '—'"></td>
+                      <td class="py-2 pr-2 font-medium t-warn whitespace-nowrap" x-text="c.bandwidth"></td>
+                      <td class="py-2 pr-2 t-secondary" x-text="c.impact_status"></td>
+                      <td class="py-2 pr-2 t-muted" x-text="c.routes.join(' / ') || '—'"></td>
+                      <td class="py-2 t-dim" x-text="c.reason"></td>
                     </tr>
                   </template>
                 </tbody>
@@ -811,19 +859,19 @@
 
             <!-- 系统漏掉（含证据级原因分析）-->
             <div x-show="compareTab==='manual_only'" class="overflow-x-auto">
-              <div x-show="comparison.manual_only.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
-              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.manual_only.length>0">
-                <thead><tr style="border-bottom:1px solid #2e3347">
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">槽路表定位</th>
-                  <th class="text-left text-gray-500 py-2 font-medium">漏掉原因（以电路名回查槽路表）</th>
+              <div x-show="comparison.manual_only.length===0" class="text-center t-faint py-4 text-sm">无</div>
+              <table class="data-table text-xs" x-show="comparison.manual_only.length>0">
+                <thead><tr>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">槽路表定位</th>
+                  <th class="text-left t-dim py-2 font-medium">漏掉原因（以电路名回查槽路表）</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(c,i) in comparison.manual_only" :key="'mo'+i">
-                    <tr style="border-bottom:1px solid #1e2132; vertical-align:top">
+                    <tr style="vertical-align:top">
                       <td class="py-2 pr-2" style="min-width:150px">
-                        <div class="text-cyan-200" x-text="c.circuit_id || '（电路名提取失败）'"></div>
-                        <div class="text-gray-600" x-text="(c.customer||'') + ' ' + (c.bandwidth||'')"></div>
+                        <div class="t-id" x-text="c.circuit_id || '（电路名提取失败）'"></div>
+                        <div class="t-faint" x-text="(c.customer||'') + ' ' + (c.bandwidth||'')"></div>
                       </td>
                       <td class="py-2 pr-2" style="min-width:130px">
                         <template x-if="c.found_in_source">
@@ -831,7 +879,7 @@
                             <span class="badge" :class="c.source_status==='开通' ? 'badge-normal' : 'badge-broken'"
                                   x-text="c.source_status || '状态空'"></span>
                             <span class="badge badge-iepl ml-1" x-text="c.source_type || '?'"></span>
-                            <div class="text-gray-500 mt-1" x-text="'路由：' + ((c.source_routes||[]).join(' / ') || '无')"></div>
+                            <div class="t-dim mt-1" x-text="'路由：' + ((c.source_routes||[]).join(' / ') || '无')"></div>
                           </div>
                         </template>
                         <template x-if="!c.found_in_source">
@@ -840,7 +888,7 @@
                       </td>
                       <td class="py-2">
                         <div class="text-amber-strong font-semibold" x-text="c.cause"></div>
-                        <div class="text-gray-500 mt-0.5 leading-relaxed" x-text="c.detail"></div>
+                        <div class="t-dim mt-0.5 leading-relaxed" x-text="c.detail"></div>
                       </td>
                     </tr>
                   </template>
@@ -850,23 +898,23 @@
 
             <!-- 一致 -->
             <div x-show="compareTab==='matched'" class="overflow-x-auto">
-              <div x-show="comparison.matched.length===0" class="text-center text-gray-600 py-4 text-sm">无</div>
-              <table class="w-full text-xs" style="border-collapse:collapse" x-show="comparison.matched.length>0">
-                <thead><tr style="border-bottom:1px solid #2e3347">
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">国际电路名</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">客户</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">带宽</th>
-                  <th class="text-left text-gray-500 py-2 pr-2 font-medium">系统状态</th>
-                  <th class="text-left text-gray-500 py-2 font-medium">人工状态</th>
+              <div x-show="comparison.matched.length===0" class="text-center t-faint py-4 text-sm">无</div>
+              <table class="data-table text-xs" x-show="comparison.matched.length>0">
+                <thead><tr>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">国际电路名</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">客户</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">带宽</th>
+                  <th class="text-left t-dim py-2 pr-2 font-medium">系统状态</th>
+                  <th class="text-left t-dim py-2 font-medium">人工状态</th>
                 </tr></thead>
                 <tbody>
                   <template x-for="(c,i) in comparison.matched" :key="'ma'+i">
-                    <tr style="border-bottom:1px solid #1e2132">
-                      <td class="py-2 pr-2 text-cyan-200" x-text="c.circuit_id || '—'"></td>
-                      <td class="py-2 pr-2 text-gray-300" x-text="c.customer || '—'"></td>
-                      <td class="py-2 pr-2 text-yellow-400" x-text="c.bandwidth"></td>
+                    <tr>
+                      <td class="py-2 pr-2 t-id" x-text="c.circuit_id || '—'"></td>
+                      <td class="py-2 pr-2 t-secondary" x-text="c.customer || '—'"></td>
+                      <td class="py-2 pr-2 font-medium t-warn whitespace-nowrap" x-text="c.bandwidth"></td>
                       <td class="py-2 pr-2"><span class="badge" :class="impactBadgeClass(c.system_status)" x-text="c.system_status"></span></td>
-                      <td class="py-2 text-gray-400" x-text="c.manual_status"></td>
+                      <td class="py-2 t-muted" x-text="c.manual_status"></td>
                     </tr>
                   </template>
                 </tbody>
@@ -910,6 +958,14 @@ function app() {
       await this.loadDataSource();
       // 默认时间：本地当前时间（避免 toISOString() 带来的时区偏移）
       this.form.fault_time = this.nowLocalInputValue();
+      // 开发辅助：?auto=1 时自动载入最近一次故障的通报（用于无头截图）
+      try {
+        const params = new URLSearchParams(location.search);
+        if (params.get('auto') && this.events.length) {
+          await this.loadFaultReport(this.events[0].id);
+          if (params.get('compare')) await this.loadComparison();
+        }
+      } catch (_) {}
     },
 
     // ── 数据源 ──────────────────────────────────────────────────────
