@@ -319,6 +319,37 @@
   .data-table .t-id { font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace; font-size: 11.5px; }
   .tab-bar { border-bottom: 1px solid var(--border); }
 
+  /* 故障全流程时间线 */
+  .workflow-line { display: grid; grid-template-columns: repeat(var(--stage-count), minmax(112px, 1fr)); gap: 0; overflow-x: auto; padding: 8px 2px 2px; }
+  .workflow-stage { position: relative; min-width: 112px; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; text-align: center; padding: 0 8px 12px; }
+  .workflow-stage::before { content: ""; position: absolute; left: 0; right: 0; top: 16px; height: 2px; background: var(--border); }
+  .workflow-stage:first-child::before { left: 50%; }
+  .workflow-stage:last-child::before { right: 50%; }
+  .workflow-dot { position: relative; z-index: 1; width: 34px; height: 34px; margin: 0 auto 8px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; background: var(--card); color: var(--text-faint); font-size: 13px; font-weight: 700; transition: all .18s ease; }
+  .workflow-stage.is-completed .workflow-dot { border-color: var(--green); background: var(--green); color: #fff; }
+  .workflow-stage.is-progress .workflow-dot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
+  .workflow-stage.is-waiting .workflow-dot { border-style: dashed; }
+  .workflow-stage.is-active { color: var(--text); font-weight: 700; }
+  .workflow-stage.is-active .workflow-dot { border-color: var(--accent); }
+  .workflow-label { display: block; font-size: 12px; white-space: nowrap; }
+  .workflow-state { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; color: var(--text-faint); }
+  .workflow-panel { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 9px; }
+  .task-item { border-bottom: 1px solid var(--border-soft); }
+  .task-item:last-child { border-bottom: 0; }
+  .task-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 0; }
+  .task-check { width: 25px; height: 25px; flex: none; border-radius: 50%; border: 1.5px solid var(--border); background: var(--card); color: transparent; display: grid; place-items: center; cursor: pointer; font-size: 14px; font-weight: 800; transition: all .15s; }
+  .task-check:hover { border-color: var(--accent); }
+  .task-check.done { color: #fff; border-color: var(--green); background: var(--green); }
+  .task-check:disabled { opacity: .45; cursor: not-allowed; }
+  .task-channel { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--text); padding: 4px 0; text-align: left; cursor: pointer; }
+  .task-channel:disabled { cursor: default; }
+  .task-chevron { width: 17px; height: 17px; margin-left: auto; flex: none; color: var(--text-faint); transition: transform .18s ease, color .18s ease; }
+  .task-channel.is-open .task-chevron { transform: rotate(180deg); color: var(--accent); }
+  .task-content { margin: 0 0 12px 35px; padding: 12px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--card); }
+  .task-content .copy-area { min-height: 0; padding: 12px; font-size: 13px; line-height: 1.75; }
+  .fixed-info-chip { padding: 5px 9px; border-radius: 6px; background: var(--card); border: 1px solid var(--border-soft); font-size: 11px; color: var(--text-muted); }
+  textarea.input { min-height: 78px; height: auto; resize: vertical; }
+
   /* 按钮内图标 + 文字 */
   .btn-label { display: inline-flex; align-items: center; gap: 6px; }
   .btn-label svg { width: 14px; height: 14px; flex: none; }
@@ -340,6 +371,7 @@
     .theme-toggle { width: 36px; padding: 0; justify-content: center; }
     .app-shell { padding-top: 16px !important; }
     .card { border-radius: 12px; }
+    .workflow-line { grid-template-columns: repeat(var(--stage-count), 128px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -558,10 +590,10 @@
         </div>
       </div>
 
-      <!-- 故障时间线 -->
+      <!-- 故障记录 -->
       <div class="card p-4" x-show="events.length > 0">
         <div class="section-title mb-3">
-          故障事件时间线 (<span x-text="events.length"></span>)
+          故障记录 (<span x-text="events.length"></span>)
           <span class="ml-auto section-meta">点击查看通报</span>
         </div>
         <div class="flex flex-col gap-2">
@@ -573,8 +605,10 @@
                 <span class="t-crit font-semibold text-sm"
                       x-text="cableLabel(ev.cable_id)"></span>
                 <span class="t-dim text-xs ml-2" x-text="formatTime(ev.fault_time)"></span>
+                <span class="badge ml-1" :class="eventIsResolved(ev) ? 'badge-normal' : 'badge-broken'"
+                      x-text="eventIsResolved(ev) ? '已终报' : '处理中'"></span>
               </div>
-              <button class="btn-danger" @click.stop="removeFault(ev.id)">解除</button>
+              <button class="btn-danger" @click.stop="removeFault(ev.id)">删除</button>
             </div>
           </template>
         </div>
@@ -592,33 +626,169 @@
         <div class="t-dim">在左侧选择故障海缆和时间，点击「生成通报」</div>
       </div>
 
-      <!-- 通报文本 -->
-      <div class="card" x-show="result" x-cloak>
-        <div class="px-4 pt-4 pb-0">
-          <div class="section-title mb-3">
-            通报文本
-            <span class="ml-auto section-meta"
-                  x-text="result ? cableLabel(result.cable_id) + ' · ' + formatTime(result.fault_time) : ''"></span>
+      <!-- 故障处理进度 -->
+      <div class="card p-4" x-show="result && result.workflow" x-cloak>
+        <div class="flex items-center gap-4 mb-3">
+          <div>
+            <div class="section-title">故障处理进度</div>
           </div>
         </div>
 
-        <!-- Tabs -->
-        <div class="flex gap-1 px-4 tab-bar">
-          <button class="tab-btn" :class="reportTab==='first_email'&&'active'"   @click="reportTab='first_email'">首报·邮件</button>
-          <button class="tab-btn" :class="reportTab==='first_sms'&&'active'"     @click="reportTab='first_sms'">首报·短信</button>
-          <button class="tab-btn" :class="reportTab==='follow_email'&&'active'"  @click="reportTab='follow_email'">续报·邮件</button>
-          <button class="tab-btn" :class="reportTab==='follow_wechat'&&'active'" @click="reportTab='follow_wechat'">续报·微信</button>
-        </div>
-
-        <div class="p-4">
-          <div class="copy-area" x-text="result && result.reports[reportTab]"></div>
-          <div class="flex gap-2 mt-3">
-            <button class="btn-ghost" @click="copyText(result.reports[reportTab])">
-              <span x-text="copied ? '已复制' : '复制'"></span>
+        <div class="workflow-line"
+             :style="`--stage-count:${applicableWorkflowStages().length || 1}`">
+          <template x-for="(stage, index) in applicableWorkflowStages()" :key="stage.id">
+            <button class="workflow-stage"
+                    :class="workflowStageClass(stage)"
+                    @click="selectWorkflowStage(stage.id)">
+              <span class="workflow-dot" x-text="stage.status === 'completed' ? '✓' : index + 1"></span>
+              <span class="workflow-label" x-text="stage.label"></span>
+              <span class="workflow-state" x-text="workflowStatusLabel(stage.status)"></span>
             </button>
-            <span class="text-xs t-faint self-center ml-1">点击复制后直接粘贴到邮件或微信</span>
-          </div>
+          </template>
         </div>
+
+        <template x-if="currentWorkflowStage()">
+          <div class="workflow-panel p-4 mt-3">
+            <div class="flex items-start gap-3 flex-wrap">
+              <div>
+                <div class="font-bold text-sm" x-text="currentWorkflowStage().label"></div>
+                <div class="text-xs t-dim mt-1" x-text="workflowStageHint(currentWorkflowStage())"></div>
+              </div>
+              <span class="badge ml-auto"
+                    :class="currentWorkflowStage().status === 'completed' ? 'badge-normal' : 'badge-backup'"
+                    x-text="workflowStatusLabel(currentWorkflowStage().status)"></span>
+            </div>
+
+            <div class="flex flex-wrap gap-2 mt-3" x-show="result && result.cable">
+              <span class="fixed-info-chip" x-text="'登陆站：' + result.cable.landing"></span>
+              <span class="fixed-info-chip" x-text="'段落方向：' + result.cable.route_desc"></span>
+              <span class="fixed-info-chip" x-text="'影响方向：' + result.cable.direction"></span>
+            </div>
+
+            <!-- 各阶段仅填写新出现的变量 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4"
+                 x-show="selectedStage === 'first_report'">
+              <div>
+                <label class="text-xs t-dim mb-1 block">首报时用户申告数 *</label>
+                <input class="input input-uniform w-full" type="number" min="0"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready"
+                       x-model="stageForm.complaint_count" placeholder="请填写当前已收到的申告数">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4"
+                 x-show="selectedStage === 'breakpoint_report'">
+              <div>
+                <label class="text-xs t-dim mb-1 block">断点距离崇明登陆站（公里）*</label>
+                <input class="input input-uniform w-full" type="number" min="0" step="0.1"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready"
+                       x-model="stageForm.distance_km" placeholder="例如：126.4">
+              </div>
+              <div>
+                <label class="text-xs t-dim mb-1 block">当前用户申告数 *</label>
+                <input class="input input-uniform w-full" type="number" min="0"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready"
+                       x-model="stageForm.complaint_count">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4"
+                 x-show="selectedStage === 'repair_plan_report'">
+              <div>
+                <label class="text-xs t-dim mb-1 block">计划开始维修日期 *</label>
+                <input class="input input-uniform w-full" type="date"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready" x-model="stageForm.repair_start_date">
+              </div>
+              <div>
+                <label class="text-xs t-dim mb-1 block">预计修复日期 *</label>
+                <input class="input input-uniform w-full" type="date"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready" x-model="stageForm.expected_restore_date">
+              </div>
+              <div>
+                <label class="text-xs t-dim mb-1 block">当前用户申告数 *</label>
+                <input class="input input-uniform w-full" type="number" min="0"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready" x-model="stageForm.complaint_count">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4"
+                 x-show="selectedStage === 'final_report'">
+              <div>
+                <label class="text-xs t-dim mb-1 block">实际修复时间 *</label>
+                <input class="input input-uniform w-full" type="datetime-local"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready" x-model="stageForm.actual_restore_time">
+              </div>
+              <div>
+                <label class="text-xs t-dim mb-1 block">最终用户申告数 *</label>
+                <input class="input input-uniform w-full" type="number" min="0"
+                       :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready" x-model="stageForm.complaint_count">
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-xs t-dim mb-1 block">最终故障原因 *</label>
+                <textarea class="input w-full" x-model="stageForm.fault_cause"
+                          :disabled="currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready"
+                          placeholder="例如：经TPE NOC确认，故障由渔业作业造成海缆外力损伤。"></textarea>
+              </div>
+            </div>
+
+            <div class="mt-3"
+                 x-show="['first_report','breakpoint_report','repair_plan_report','final_report'].includes(selectedStage)">
+              <button class="btn-primary"
+                      :disabled="workflowSaving || (currentWorkflowStage().status === 'completed' && currentWorkflowStage().ready)"
+                      @click="saveStageFields()">
+                <span x-text="workflowSaving ? '保存中…' : '保存本阶段信息'"></span>
+              </button>
+              <span class="text-xs t-ok ml-2" x-show="workflowSaved">信息已保存，通报内容已更新</span>
+            </div>
+
+            <div class="mt-4">
+              <div class="text-xs font-semibold t-secondary mb-1">传报渠道确认</div>
+              <template x-for="task in currentWorkflowStage().tasks" :key="task.id">
+                <div class="task-item">
+                  <div class="task-row">
+                    <button class="task-check" :class="task.completed && 'done'"
+                            :disabled="workflowSaving || (!currentWorkflowStage().can_complete && !task.completed)"
+                            @click="toggleWorkflowTask(task)">
+                      <span>✓</span>
+                    </button>
+                    <button class="task-channel"
+                            :class="expandedTasks.includes(task.id) && 'is-open'"
+                            :disabled="!taskHasReport(task)"
+                            @click="toggleTaskContent(task)">
+                      <span class="min-w-0">
+                        <span class="text-sm font-medium block" x-text="task.label"></span>
+                        <span class="text-xs t-faint block" x-show="task.completed"
+                              x-text="'完成于 ' + formatDateTime(task.completed_at)"></span>
+                        <span class="text-xs t-warn mt-0.5 block"
+                              x-show="task.id === 'supervisor_excel' && (!currentWorkflowStage().ready || stageHasUnsavedChanges())">
+                          请先保存本阶段信息，再下载文件
+                        </span>
+                      </span>
+                      <svg class="task-chevron" x-show="taskHasReport(task)" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                    <button class="btn-ghost"
+                            x-show="task.id === 'supervisor_excel'"
+                            @click="downloadSupervisorExcel(selectedStage)">下载文件</button>
+                    <button class="btn-ghost"
+                            x-show="task.id === 'email_attachment'"
+                            @click="downloadExcel()">下载附件</button>
+                  </div>
+                  <div class="task-content" x-show="expandedTasks.includes(task.id) && taskHasReport(task)">
+                    <div class="copy-area" x-text="reportTextForTask(task.id)"></div>
+                    <div class="mt-2">
+                      <button class="btn-ghost" @click="copyText(reportTextForTask(task.id))">
+                        <span x-text="copied ? '已复制' : '复制文案'"></span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- 业务影响统计 -->
@@ -688,14 +858,8 @@
           </table>
         </div>
 
-        <!-- 下载 Excel + 人工对比 -->
+        <!-- 人工对比 -->
         <div class="mt-4 flex items-center gap-3">
-          <button class="btn-primary" @click="downloadExcel()" x-show="result">
-            <span class="btn-label">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              下载业务影响统计表 (.xlsx)
-            </span>
-          </button>
           <button class="btn-ghost" @click="loadComparison()" :disabled="compareLoading" x-show="result">
             <span x-show="!compareLoading" class="btn-label">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
@@ -703,7 +867,6 @@
             </span>
             <span x-show="compareLoading">对比中…</span>
           </button>
-          <span class="text-xs t-faint">续报邮件附件</span>
         </div>
       </div>
 
@@ -938,7 +1101,11 @@ function app() {
     result: null,
     loading: false,
     copied: false,
-    reportTab: 'first_email',
+    selectedStage: 'first_report',
+    expandedTasks: [],
+    stageForm: {},
+    workflowSaving: false,
+    workflowSaved: false,
     circuitTab: 'iepl',
     tooltip: { visible: false, x: 0, y: 0, name: '', route: '', direction: '', status: 'normal', fault_time: '' },
     form: { cable_id: '', fault_time: '' },
@@ -1045,6 +1212,7 @@ function app() {
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
         this.result = data;
+        this.syncWorkflowSelection();
         this.comparison = null;
         this.events  = data.events || [];
         this.cables  = data.cables.map(s => {
@@ -1060,8 +1228,9 @@ function app() {
       }
     },
 
-    // ── 解除故障 ────────────────────────────────────────────────────
+    // ── 删除故障记录 ─────────────────────────────────────────────────
     async removeFault(eventId) {
+      if (!confirm('确认删除这条故障记录吗？相关流程进度也会一并删除。')) return;
       const res  = await fetch(`/api/fault/${eventId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
@@ -1070,7 +1239,7 @@ function app() {
       const cablesRes = await fetch('/api/cables');
       this.cables = await cablesRes.json();
       this.syncSvg();
-      // 如果当前结果的海缆已被解除，清空结果
+      // 如果当前查看的记录已被删除，清空结果
       if (this.result) {
         const stillExists = this.events.find(e =>
           e.cable_id === this.result.cable_id && e.fault_time === this.result.fault_time
@@ -1096,6 +1265,7 @@ function app() {
         if (data.error) { alert(data.error); return; }
         data.event_id = eventId;  // 添加 event_id 用于高亮
         this.result = data;
+        this.syncWorkflowSelection();
         this.comparison = null;
       } finally {
         this.loading = false;
@@ -1114,6 +1284,147 @@ function app() {
 
     selectCable(id) {
       this.form.cable_id = id;
+    },
+
+    // ── 五阶段故障流程 ────────────────────────────────────────────────
+    applicableWorkflowStages() {
+      if (!this.result || !this.result.workflow) return [];
+      return this.result.workflow.stages.filter(stage => stage.applicable);
+    },
+
+    currentWorkflowStage() {
+      return this.applicableWorkflowStages().find(stage => stage.id === this.selectedStage)
+        || this.applicableWorkflowStages()[0] || null;
+    },
+
+    syncWorkflowSelection() {
+      const stages = this.applicableWorkflowStages();
+      if (!stages.length) return;
+      if (!stages.some(stage => stage.id === this.selectedStage)) {
+        this.selectedStage = stages[0].id;
+      }
+      this.loadStageForm();
+      const stage = this.currentWorkflowStage();
+      const validTaskIds = stage
+        ? stage.tasks.filter(task => this.taskHasReport(task)).map(task => task.id)
+        : [];
+      this.expandedTasks = this.expandedTasks.filter(taskId => validTaskIds.includes(taskId));
+    },
+
+    selectWorkflowStage(stageId) {
+      this.selectedStage = stageId;
+      this.workflowSaved = false;
+      this.copied = false;
+      this.loadStageForm();
+      this.expandedTasks = [];
+    },
+
+    loadStageForm() {
+      const stage = this.currentWorkflowStage();
+      this.stageForm = stage ? { ...stage.fields } : {};
+    },
+
+    stageHasUnsavedChanges() {
+      const stage = this.currentWorkflowStage();
+      if (!stage) return false;
+      return JSON.stringify(this.stageForm || {}) !== JSON.stringify(stage.fields || {});
+    },
+
+    workflowStatusLabel(status) {
+      const labels = {
+        not_started: '未开始', waiting: '等待信息', in_progress: '进行中',
+        completed: '已完成', not_applicable: '不适用',
+      };
+      return labels[status] || status;
+    },
+
+    workflowStageClass(stage) {
+      return {
+        'is-active': this.selectedStage === stage.id,
+        'is-completed': stage.status === 'completed',
+        'is-progress': stage.status === 'in_progress',
+        'is-waiting': stage.status === 'waiting' || stage.status === 'not_started',
+      };
+    },
+
+    workflowStageHint(stage) {
+      if (stage.status === 'completed' && !stage.ready) return '历史记录缺少本阶段信息，请补充并保存';
+      if (stage.status === 'completed') return '本阶段所有传报渠道均已确认完成';
+      if (!stage.previous_complete) return '请先完成前一个传报阶段';
+      if (!stage.ready) return '等待信息到达并填写本阶段变量';
+      return '文案已生成，实际传报后逐项确认';
+    },
+
+    async saveStageFields() {
+      if (!this.result || !this.result.event_id) return;
+      this.workflowSaving = true;
+      this.workflowSaved = false;
+      try {
+        const res = await fetch(`/api/fault/${this.result.event_id}/workflow`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stage_id: this.selectedStage, fields: this.stageForm }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || '保存失败');
+        this.result = data;
+        this.events = data.events || this.events;
+        this.syncWorkflowSelection();
+        this.workflowSaved = true;
+        setTimeout(() => this.workflowSaved = false, 2500);
+      } catch (error) {
+        alert(error.message || error);
+      } finally {
+        this.workflowSaving = false;
+      }
+    },
+
+    async toggleWorkflowTask(task) {
+      if (!this.result || !this.result.event_id) return;
+      this.workflowSaving = true;
+      try {
+        const res = await fetch(`/api/fault/${this.result.event_id}/task`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stage_id: this.selectedStage,
+            channel_id: task.id,
+            completed: !task.completed,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || '状态保存失败');
+        this.result = data;
+        this.events = data.events || this.events;
+        this.syncWorkflowSelection();
+        const cablesRes = await fetch('/api/cables');
+        this.cables = await cablesRes.json();
+        this.syncSvg();
+      } catch (error) {
+        alert(error.message || error);
+      } finally {
+        this.workflowSaving = false;
+      }
+    },
+
+    reportTextForTask(taskId) {
+      if (!this.result || !this.result.reports || !this.result.reports.stages) return '';
+      const reports = this.result.reports.stages[this.selectedStage] || {};
+      return reports[taskId] || '';
+    },
+
+    taskHasReport(task) {
+      return Boolean(task && this.reportTextForTask(task.id));
+    },
+
+    toggleTaskContent(task) {
+      if (!this.taskHasReport(task)) return;
+      this.copied = false;
+      if (this.expandedTasks.includes(task.id)) {
+        this.expandedTasks = this.expandedTasks.filter(taskId => taskId !== task.id);
+      } else {
+        this.expandedTasks = [...this.expandedTasks, task.id];
+      }
     },
 
     // ── Tooltip ─────────────────────────────────────────────────────
@@ -1189,6 +1500,40 @@ function app() {
       }
     },
 
+    async downloadSupervisorExcel(stageId) {
+      if (!this.result || !this.result.event_id) return;
+      const stage = this.currentWorkflowStage();
+      if (!stage || !stage.ready || this.stageHasUnsavedChanges()) {
+        alert('请先填写并保存本阶段信息，再下载专业主管文件。');
+        return;
+      }
+      const url = `/api/supervisor-download?event_id=${encodeURIComponent(this.result.event_id)}&stage_id=${encodeURIComponent(stageId)}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.error || `下载失败（${res.status}）`);
+        }
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const filename = filenameMatch
+          ? decodeURIComponent(filenameMatch[1])
+          : '专业主管传报文件.xlsx';
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      } catch (error) {
+        alert(error.message || error);
+      }
+    },
+
     nowLocalInputValue() {
       const d = new Date();
       d.setSeconds(0, 0);
@@ -1206,11 +1551,22 @@ function app() {
       return c ? `${c.cable} ${c.segment}` : id;
     },
 
+    eventIsResolved(event) {
+      const tasks = event && event.workflow && event.workflow.tasks
+        ? event.workflow.tasks.final_report : null;
+      return !!tasks && Object.values(tasks).every(task => task.completed);
+    },
+
     formatTime(t) {
       if (!t) return '';
       const d = new Date(t.replace('T', ' '));
       if (isNaN(d)) return t;
       return `${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    },
+
+    formatDateTime(t) {
+      if (!t) return '';
+      return String(t).replace('T', ' ');
     },
 
     formatGbps(v) {
@@ -1232,7 +1588,6 @@ function app() {
         '主备双断':  'badge-broken',
         '主用':     'badge-primary',
         '备用':     'badge-backup',
-        '疑似':     'badge-suspect',
       };
       return map[status] || 'badge-normal';
     },

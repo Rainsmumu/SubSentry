@@ -21,6 +21,16 @@ from cable_config import CABLES, CABLE_BY_ID
 from circuit_analyzer import analyze, bw_to_gbps, invalidate_cache
 from report_builder import build_reports
 from excel_builder import build_excel
+from supervisor_excel import build_supervisor_excel
+from fault_workflow import (
+    ensure_event_workflow,
+    event_resolved_at,
+    set_task_completed,
+    stage_completed,
+    stage_ready,
+    update_stage_fields,
+    workflow_view,
+)
 import data_source
 from comparison import compare as compare_manual
 
@@ -71,7 +81,11 @@ def _load_state() -> dict:
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, encoding="utf-8") as f:
-                return json.load(f)
+                state = json.load(f)
+                state.setdefault("events", [])
+                for event in state["events"]:
+                    ensure_event_workflow(event)
+                return state
         except (json.JSONDecodeError, OSError):
             pass
     return {"events": []}
@@ -98,6 +112,9 @@ def _get_broken_ids(state: dict) -> list[str]:
     seen = set()
     result = []
     for ev in state["events"]:
+        ensure_event_workflow(ev)
+        if event_resolved_at(ev):
+            continue
         cid = ev["cable_id"]
         if cid not in seen:
             seen.add(cid)
@@ -217,6 +234,9 @@ def api_cables():
             "landing":   c["landing"],
             "route_desc":c["route_desc"],
             "direction": c["direction"],
+            "noc":       c["noc"],
+            "workflow_type": c["workflow_type"],
+            "responsible": c["responsible"],
             "status":    "broken" if c["id"] in broken_set else "normal",
         })
     return jsonify(result)
@@ -236,23 +256,76 @@ def api_add_fault():
 
     state = _load_state()
 
-    # 如果该海缆已在故障列表中，先移除再添加（更新时间）
-    state["events"] = [e for e in state["events"] if e["cable_id"] != cable_id]
+    # 同一段落只替换尚未终报的当前故障，已经完成的历史记录继续保留。
+    state["events"] = [
+        e for e in state["events"]
+        if e["cable_id"] != cable_id or event_resolved_at(e)
+    ]
     event = {
         "id":         str(uuid.uuid4()),
         "cable_id":   cable_id,
         "fault_time": fault_time,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
+    ensure_event_workflow(event)
     state["events"].append(event)
     _save_state(state)
 
     return _build_analysis_response_for_event(state, event["id"])
 
 
+@app.route("/api/fault/<event_id>/workflow", methods=["PATCH"])
+def api_update_workflow(event_id: str):
+    """保存断点、维修计划、修复信息等阶段变量。"""
+    data = request.get_json(silent=True) or {}
+    stage_id = str(data.get("stage_id", "")).strip()
+    fields = data.get("fields") or {}
+    state = _load_state()
+    event = _find_target_event(state, event_id, "", "")
+    if not event:
+        return jsonify({"error": "找不到该故障事件"}), 404
+    try:
+        update_stage_fields(event, stage_id, fields)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    _save_state(state)
+    return _build_analysis_response_for_event(state, event_id)
+
+
+@app.route("/api/fault/<event_id>/task", methods=["PATCH"])
+def api_update_task(event_id: str):
+    """由值班人员确认某个传报渠道已经完成。"""
+    data = request.get_json(silent=True) or {}
+    stage_id = str(data.get("stage_id", "")).strip()
+    channel_id = str(data.get("channel_id", "")).strip()
+    completed = bool(data.get("completed", False))
+    state = _load_state()
+    event = _find_target_event(state, event_id, "", "")
+    if not event:
+        return jsonify({"error": "找不到该故障事件"}), 404
+    cable = CABLE_BY_ID.get(event.get("cable_id"))
+    try:
+        set_task_completed(event, cable, stage_id, channel_id, completed)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if stage_id == "impact_report":
+        if completed and stage_completed(event, "impact_report"):
+            impact = _analyze_event_independent_impact(state, event, use_snapshot=False)
+            event["impact_snapshot"] = {
+                "captured_at": datetime.now().isoformat(timespec="seconds"),
+                "broken_ids": impact["broken_ids"],
+                "circuits": impact["circuits"],
+                "summary": impact["summary"],
+            }
+        elif not completed:
+            event.pop("impact_snapshot", None)
+    _save_state(state)
+    return _build_analysis_response_for_event(state, event_id)
+
+
 @app.route("/api/fault/<event_id>", methods=["DELETE"])
 def api_remove_fault(event_id: str):
-    """解除某条故障事件（按事件 id 删除），触发全量重算。"""
+    """按事件 id 删除故障记录，并触发当前海缆状态重算。"""
     state = _load_state()
     before = len(state["events"])
     state["events"] = [e for e in state["events"] if e["id"] != event_id]
@@ -342,6 +415,44 @@ def api_download():
     )
 
 
+@app.route("/api/supervisor-download")
+def api_supervisor_download():
+    """下载崇明出口海缆截至指定阶段的专业主管传报文件。"""
+    event_id = request.args.get("event_id", "").strip()
+    stage_id = request.args.get("stage_id", "first_report").strip()
+    state = _load_state()
+    event = _find_target_event(state, event_id, "", "")
+    if not event:
+        return jsonify({"error": "找不到该故障事件"}), 404
+    cable = CABLE_BY_ID.get(event.get("cable_id"))
+    if not cable or cable.get("landing") != "崇明":
+        return jsonify({"error": "专业主管文件仅适用于崇明出口海缆"}), 400
+    if stage_id not in {
+        "first_report", "breakpoint_report", "repair_plan_report", "final_report"
+    }:
+        return jsonify({"error": "无效的专业主管文件阶段"}), 400
+    if not stage_ready(event, stage_id):
+        return jsonify({
+            "error": "请先填写并保存本阶段信息，再下载专业主管文件"
+        }), 400
+
+    result = _analyze_event_independent_impact(state, event)
+    try:
+        excel_bytes = build_supervisor_excel(event, result["summary"], stage_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    filename = (
+        f"{cable['cable']}海缆{cable['segment']}段故障专业主管传报文件.xlsx"
+    )
+    return Response(
+        excel_bytes,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{_url_encode(filename)}"
+        },
+    )
+
+
 # ── 内部辅助 ──────────────────────────────────────────────────────────
 
 def _find_target_event(state: dict, event_id: str, cable_id: str, fault_time: str) -> dict | None:
@@ -368,6 +479,7 @@ def _get_broken_ids_before_after_event(state: dict, target_event: dict) -> tuple
     seen = set()
     ordered_events = sorted(state["events"], key=lambda x: x.get("created_at", ""))
     target_id = target_event["id"]
+    target_created = target_event.get("created_at", "")
 
     for ev in ordered_events:
         cid = ev.get("cable_id", "")
@@ -376,6 +488,10 @@ def _get_broken_ids_before_after_event(state: dict, target_event: dict) -> tuple
             if cid and cid not in seen:
                 after.append(cid)
             return before, after
+        # 已在目标故障发生前完成终报的历史事件，不属于当时并发中断集合。
+        resolved_at = event_resolved_at(ev)
+        if resolved_at and target_created and resolved_at <= target_created:
+            continue
         if cid and cid not in seen:
             before.append(cid)
             seen.add(cid)
@@ -406,6 +522,15 @@ def _summarize_circuits(circuits: list[dict]) -> dict:
     iepl_total     = sum(1 for c in circuits if c["type"] == "IEPL")
     iepl_broken    = sum(1 for c in circuits if c["type"] == "IEPL" and c["is_broken"])
     iepl_broken_sh = sum(1 for c in circuits if c["type"] == "IEPL" and c["is_broken"] and c["is_shanghai"])
+    iepl_broken_bw = sum(
+        bw_to_gbps(c["bandwidth"])
+        for c in circuits if c["type"] == "IEPL" and c["is_broken"]
+    )
+    iepl_broken_sh_bw = sum(
+        bw_to_gbps(c["bandwidth"])
+        for c in circuits
+        if c["type"] == "IEPL" and c["is_broken"] and c["is_shanghai"]
+    )
 
     ip_loss    = sum(bw_to_gbps(c["bandwidth"]) for c in circuits if c["type"] == "IP" and c["is_broken"])
     ip_loss_sh = sum(
@@ -418,16 +543,28 @@ def _summarize_circuits(circuits: list[dict]) -> dict:
         "iepl_total":      iepl_total,
         "iepl_broken":     iepl_broken,
         "iepl_broken_sh":  iepl_broken_sh,
+        "iepl_broken_gbps": round(iepl_broken_bw, 4),
+        "iepl_broken_sh_gbps": round(iepl_broken_sh_bw, 4),
         "ip_loss_gbps":    round(ip_loss, 4),
         "ip_loss_sh_gbps": round(ip_loss_sh, 4),
     }
 
 
-def _analyze_event_independent_impact(state: dict, target_event: dict) -> dict:
+def _analyze_event_independent_impact(
+    state: dict, target_event: dict, use_snapshot: bool = True
+) -> dict:
     """
     计算某个事件的独立影响：
     仅保留该事件引起的新增影响或影响级别变化（如 主用 -> 主备双断）。
     """
+    if use_snapshot and target_event.get("impact_snapshot"):
+        snapshot = target_event["impact_snapshot"]
+        return {
+            "broken_ids": snapshot["broken_ids"],
+            "circuits": snapshot["circuits"],
+            "summary": snapshot["summary"],
+        }
+
     broken_before, broken_after = _get_broken_ids_before_after_event(state, target_event)
 
     before_result = analyze(broken_before) if broken_before else {"circuits": []}
@@ -488,13 +625,16 @@ def _build_analysis_response_from_result(
 ) -> Response:
     """执行分析后统一组装 JSON 响应。"""
 
-    # 上海落地且业务中断的 IEPL（微信明细用）
-    broken_iepl_sh = [
+    # 真正中断的客户专线（微信明细用，排序沿用分析结果）。
+    broken_customer_circuits = [
         c for c in result["circuits"]
-        if c["type"] == "IEPL" and c["is_broken"] and c["is_shanghai"]
+        if c["type"] == "IEPL" and c["is_broken"]
     ]
 
-    reports = build_reports(cable_id, fault_time, result["summary"], broken_iepl_sh)
+    target_event = _find_target_event({"events": events}, event_id or "", cable_id, fault_time)
+    reports = build_reports(
+        cable_id, fault_time, result["summary"], broken_customer_circuits, target_event
+    )
 
     # 电路按 IEPL / IP 分组，前端展示用
     iepl_circuits = [c for c in result["circuits"] if c["type"] == "IEPL"]
@@ -507,6 +647,14 @@ def _build_analysis_response_from_result(
         "broken_ids": result["broken_ids"],
         "summary":    result["summary"],
         "reports":    reports,
+        "workflow":   workflow_view(target_event, CABLE_BY_ID[cable_id]) if target_event else None,
+        "cable": {
+            key: CABLE_BY_ID[cable_id][key]
+            for key in (
+                "id", "cable", "segment", "landing", "route_desc", "direction",
+                "noc", "workflow_type", "responsible",
+            )
+        },
         "iepl":       iepl_circuits,
         "ip":         ip_circuits,
         "events":     events,

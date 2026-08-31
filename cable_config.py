@@ -93,6 +93,19 @@ CABLES = [
     },
 ]
 
+# 传报流程使用的固定信息。海缆段落一经选定，值班人员无需重复填写。
+DEFAULT_RESPONSIBLE = {
+    "name": "邹斌",
+    "phone": "18601723639",
+}
+
+for _cable in CABLES:
+    _cable["noc"] = f"{_cable['cable']} NOC"
+    _cable["workflow_type"] = (
+        "chongming_full" if _cable["landing"] == "崇明" else "nanhui_impact_only"
+    )
+    _cable["responsible"] = DEFAULT_RESPONSIBLE.copy()
+
 # 索引：按 id 快速查找
 CABLE_BY_ID = {c["id"]: c for c in CABLES}
 
