@@ -25,7 +25,9 @@ APP_ITEMS=(
   data_source.py
   deploy_check.py
   excel_builder.py
+  fault_workflow.py
   report_builder.py
+  supervisor_excel.py
   requirements.txt
   windows_manage.py
   README.md
@@ -34,6 +36,9 @@ APP_ITEMS=(
   tests/test_cable_config.py
   tests/test_comparison.py
   tests/test_excel_builder.py
+  tests/test_fault_workflow.py
+  tests/test_report_builder.py
+  tests/test_supervisor_excel.py
   tests/test_windows_manage.py
 )
 
