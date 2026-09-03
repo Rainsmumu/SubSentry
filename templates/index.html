@@ -803,7 +803,7 @@
             <div class="text-xs t-faint mt-0.5" x-text="result ? '上海落地 ' + formatGbps(result.summary.ip_loss_sh_gbps) : ''"></div>
           </div>
           <div class="surface-muted p-3 rounded-lg">
-            <div class="text-xs t-dim mb-1">IEPL专线中断（无保护/双断）</div>
+            <div class="text-xs t-dim mb-1">客户专线中断（无保护/双断）</div>
             <div class="metric-num" x-text="result ? result.summary.iepl_broken + ' 条' : '--'"></div>
             <div class="text-xs t-faint mt-0.5" x-text="result ? '上海落地 ' + result.summary.iepl_broken_sh + ' 条' : ''"></div>
           </div>
@@ -812,7 +812,7 @@
         <!-- IEPL / IP 电路详情 Tabs -->
         <div class="flex gap-1 tab-bar mb-3">
           <button class="tab-btn text-xs" :class="circuitTab==='iepl'&&'active'" @click="circuitTab='iepl'">
-            客户专线 IEPL (<span x-text="result ? result.iepl.length : 0"></span>)
+            客户专线 (<span x-text="result ? result.iepl.length : 0"></span>)
           </button>
           <button class="tab-btn text-xs" :class="circuitTab==='ip'&&'active'" @click="circuitTab='ip'">
             IP电路 (<span x-text="result ? result.ip.length : 0"></span>)

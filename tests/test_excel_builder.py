@@ -3,10 +3,15 @@ from io import BytesIO
 
 import openpyxl
 
+from circuit_analyzer import _NORMALIZE_TYPE, _VALID_TYPES
 from excel_builder import build_excel
 
 
 class ExcelBuilderTests(unittest.TestCase):
+    def test_mpls_vpn_is_included_as_customer_circuit(self):
+        self.assertIn("MPLS-VPN", _VALID_TYPES)
+        self.assertEqual(_NORMALIZE_TYPE["MPLS-VPN"], "IEPL")
+
     def test_export_contains_routes_type_and_cooperation(self):
         circuit = {
             "customer": "测试客户",
