@@ -8,9 +8,11 @@ from excel_builder import build_excel
 
 
 class ExcelBuilderTests(unittest.TestCase):
-    def test_mpls_vpn_is_included_as_customer_circuit(self):
+    def test_additional_types_are_included_as_customer_circuits(self):
         self.assertIn("MPLS-VPN", _VALID_TYPES)
         self.assertEqual(_NORMALIZE_TYPE["MPLS-VPN"], "IEPL")
+        self.assertIn("NNI", _VALID_TYPES)
+        self.assertEqual(_NORMALIZE_TYPE["NNI"], "IEPL")
 
     def test_export_contains_routes_type_and_cooperation(self):
         circuit = {

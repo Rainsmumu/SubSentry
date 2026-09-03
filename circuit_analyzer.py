@@ -1,7 +1,7 @@
 """
 circuit_analyzer.py — 电路影响分析引擎
 
-从金桥机房电路表读取开通的 IP/IEPL/IPLC/DDN/MPLS-VPN 电路，
+从金桥机房电路表读取开通的 IP/IEPL/IPLC/DDN/MPLS-VPN/NNI 电路，
 根据当前故障海缆集合判断每条电路的影响状态。
 
 影响分类：
@@ -39,11 +39,16 @@ _COL = {
     "status":      90,
 }
 
-# 统计的电路性质：IP，以及 IEPL/IPLC/DDN/MPLS-VPN 客户专线
-_VALID_TYPES = {"IP", "IEPL", "IPLC", "DDN", "MPLS-VPN"}
+# 统计的电路性质：IP，以及 IEPL/IPLC/DDN/MPLS-VPN/NNI 客户专线
+_VALID_TYPES = {"IP", "IEPL", "IPLC", "DDN", "MPLS-VPN", "NNI"}
 
-# IPLC、DDN、MPLS-VPN 均按客户专线参与页面、通报及汇总；source_type 保留原始性质。
-_NORMALIZE_TYPE = {"IPLC": "IEPL", "DDN": "IEPL", "MPLS-VPN": "IEPL"}
+# 这些性质均按客户专线参与页面、通报及汇总；source_type 保留原始性质。
+_NORMALIZE_TYPE = {
+    "IPLC": "IEPL",
+    "DDN": "IEPL",
+    "MPLS-VPN": "IEPL",
+    "NNI": "IEPL",
+}
 
 # 影响状态常量
 STATUS_NO_PROTECT   = "无保护"      # 业务中断（单腿断）
@@ -139,7 +144,7 @@ def build_source_index(force_reload: bool = False) -> dict[str, list[dict]]:
 
 def load_circuits(force_reload: bool = False) -> list[dict]:
     """
-    加载金桥机房电路表中所有"开通"的 IP/IEPL/IPLC/DDN/MPLS-VPN 电路。
+    加载金桥机房电路表中所有"开通"的 IP/IEPL/IPLC/DDN/MPLS-VPN/NNI 电路。
     返回列表，每项为字典形式的电路信息。
     """
     global _data_cache, _data_mtime, _data_path
@@ -163,7 +168,7 @@ def load_circuits(force_reload: bool = False) -> list[dict]:
         # 过滤：只取开通状态
         if str(row[_COL["status"]] or "").strip() != "开通":
             continue
-        # 过滤：只取 IP / IEPL / IPLC / DDN / MPLS-VPN
+        # 过滤：只取 IP / IEPL / IPLC / DDN / MPLS-VPN / NNI
         ctype = str(row[_COL["type"]] or "").strip()
         if ctype not in _VALID_TYPES:
             continue
