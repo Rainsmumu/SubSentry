@@ -29,7 +29,6 @@ RECIPIENT_ADDRESS = "SMTP:test@example.invalid"
 ATTACHMENT_NAME = "SubSentry_Foxmail兼容性测试附件.txt"
 RESULT_NAME = "Foxmail_MAPI_测试结果.txt"
 
-MAPI_LOGON_UI = 0x00000001
 MAPI_DIALOG = 0x00000008
 MAPI_FORCE_UNICODE = 0x00040000
 MAPI_TO = 1
@@ -69,6 +68,54 @@ def _read_registry_value(root, path: str, name: str = "") -> str:
         return "未设置"
 
 
+def _pe_bitness(path_value: str) -> str:
+    path_text = os.path.expandvars(path_value).strip().strip('"')
+    path = Path(path_text)
+    if not path.is_file():
+        return "文件不存在"
+    try:
+        with path.open("rb") as stream:
+            if stream.read(2) != b"MZ":
+                return "不是PE文件"
+            stream.seek(0x3C)
+            pe_offset = struct.unpack("<I", stream.read(4))[0]
+            stream.seek(pe_offset + 4)
+            machine = struct.unpack("<H", stream.read(2))[0]
+    except (OSError, struct.error):
+        return "无法读取"
+    return {
+        0x014C: "32位 (x86)",
+        0x8664: "64位 (x64)",
+        0xAA64: "64位 (ARM64)",
+    }.get(machine, f"未知PE架构 0x{machine:04X}")
+
+
+def _read_mail_provider(root, path: str) -> dict:
+    try:
+        import winreg
+
+        with winreg.OpenKey(root, path) as key:
+            values = {"registered": True, "registry_path": path}
+            for name in ("DLLPath", "DLLPathEx", "MSIComponentID"):
+                try:
+                    value, _ = winreg.QueryValueEx(key, name)
+                except FileNotFoundError:
+                    continue
+                values[name] = str(value)
+                if name in {"DLLPath", "DLLPathEx"}:
+                    expanded = os.path.expandvars(str(value)).strip().strip('"')
+                    values[f"{name}_expanded"] = expanded
+                    values[f"{name}_exists"] = Path(expanded).is_file()
+                    values[f"{name}_bits"] = _pe_bitness(expanded)
+            return values
+    except (ImportError, FileNotFoundError, OSError) as exc:
+        return {
+            "registered": False,
+            "registry_path": path,
+            "error": str(exc),
+        }
+
+
 def collect_environment() -> dict:
     info = {
         "time": datetime.now().isoformat(timespec="seconds"),
@@ -101,6 +148,16 @@ def collect_environment() -> dict:
         "mapi32_exists": Path(os.environ.get("WINDIR", r"C:\Windows"))
         .joinpath("System32", "MAPI32.DLL")
         .is_file(),
+        "foxmail_provider_hkcu": _read_mail_provider(
+            winreg.HKEY_CURRENT_USER, r"Software\Clients\Mail\Foxmail"
+        ),
+        "foxmail_provider_hklm": _read_mail_provider(
+            winreg.HKEY_LOCAL_MACHINE, r"Software\Clients\Mail\Foxmail"
+        ),
+        "foxmail_provider_hklm_32bit": _read_mail_provider(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"Software\WOW6432Node\Clients\Mail\Foxmail",
+        ),
     })
     mail_values = (
         info["default_mail_client_hkcu"],
@@ -125,7 +182,14 @@ def create_test_attachment() -> Path:
     return path
 
 
-def open_mapi_draft(attachment_path: Path) -> int:
+def _load_system_mapi():
+    mapi_path = Path(os.environ.get("WINDIR", r"C:\Windows")).joinpath(
+        "System32", "MAPI32.DLL"
+    )
+    return ctypes.WinDLL(str(mapi_path))
+
+
+def open_mapi_draft_unicode(attachment_path: Path) -> int:
     if os.name != "nt":
         raise RuntimeError("该测试只能在Windows值班机上运行")
 
@@ -192,7 +256,7 @@ def open_mapi_draft(attachment_path: Path) -> int:
         ctypes.cast(attachments, ctypes.POINTER(MapiFileDescW)),
     )
 
-    mapi = ctypes.WinDLL("MAPI32.DLL")
+    mapi = _load_system_mapi()
     try:
         send_mail = mapi.MAPISendMailW
     except AttributeError as exc:
@@ -211,10 +275,107 @@ def open_mapi_draft(attachment_path: Path) -> int:
             0,
             0,
             ctypes.byref(message),
-            MAPI_LOGON_UI | MAPI_DIALOG | MAPI_FORCE_UNICODE,
+            MAPI_DIALOG | MAPI_FORCE_UNICODE,
             0,
         )
     )
+
+
+def open_mapi_draft_ansi(attachment_path: Path) -> int:
+    if os.name != "nt":
+        raise RuntimeError("该测试只能在Windows值班机上运行")
+
+    from ctypes import wintypes
+
+    class MapiRecipDescA(ctypes.Structure):
+        _fields_ = [
+            ("ulReserved", wintypes.ULONG),
+            ("ulRecipClass", wintypes.ULONG),
+            ("lpszName", ctypes.c_char_p),
+            ("lpszAddress", ctypes.c_char_p),
+            ("ulEIDSize", wintypes.ULONG),
+            ("lpEntryID", ctypes.c_void_p),
+        ]
+
+    class MapiFileDescA(ctypes.Structure):
+        _fields_ = [
+            ("ulReserved", wintypes.ULONG),
+            ("flFlags", wintypes.ULONG),
+            ("nPosition", wintypes.ULONG),
+            ("lpszPathName", ctypes.c_char_p),
+            ("lpszFileName", ctypes.c_char_p),
+            ("lpFileType", ctypes.c_void_p),
+        ]
+
+    class MapiMessageA(ctypes.Structure):
+        _fields_ = [
+            ("ulReserved", wintypes.ULONG),
+            ("lpszSubject", ctypes.c_char_p),
+            ("lpszNoteText", ctypes.c_char_p),
+            ("lpszMessageType", ctypes.c_char_p),
+            ("lpszDateReceived", ctypes.c_char_p),
+            ("lpszConversationID", ctypes.c_char_p),
+            ("flFlags", wintypes.ULONG),
+            ("lpOriginator", ctypes.c_void_p),
+            ("nRecipCount", wintypes.ULONG),
+            ("lpRecips", ctypes.POINTER(MapiRecipDescA)),
+            ("nFileCount", wintypes.ULONG),
+            ("lpFiles", ctypes.POINTER(MapiFileDescA)),
+        ]
+
+    def ansi(value: str) -> bytes:
+        try:
+            return value.encode("mbcs")
+        except UnicodeEncodeError as exc:
+            raise RuntimeError(f"当前Windows系统编码无法表示测试文本：{exc}") from exc
+
+    recipient_name = ansi(RECIPIENT_NAME)
+    recipient_address = ansi(RECIPIENT_ADDRESS)
+    attachment_path_bytes = ansi(str(attachment_path))
+    attachment_name = ansi(ATTACHMENT_NAME)
+    subject = ansi(SUBJECT)
+    body = ansi(BODY)
+
+    recipients = (MapiRecipDescA * 1)(
+        MapiRecipDescA(
+            0, MAPI_TO, recipient_name, recipient_address, 0, None
+        )
+    )
+    attachments = (MapiFileDescA * 1)(
+        MapiFileDescA(
+            0, 0, 0xFFFFFFFF, attachment_path_bytes, attachment_name, None
+        )
+    )
+    message = MapiMessageA(
+        0,
+        subject,
+        body,
+        None,
+        None,
+        None,
+        0,
+        None,
+        len(recipients),
+        ctypes.cast(recipients, ctypes.POINTER(MapiRecipDescA)),
+        len(attachments),
+        ctypes.cast(attachments, ctypes.POINTER(MapiFileDescA)),
+    )
+
+    mapi = _load_system_mapi()
+    try:
+        send_mail = mapi.MAPISendMail
+    except AttributeError as exc:
+        raise RuntimeError("系统MAPI32.DLL未提供MAPISendMail接口") from exc
+
+    send_mail.argtypes = [
+        ctypes.c_size_t,
+        ctypes.c_size_t,
+        ctypes.POINTER(MapiMessageA),
+        wintypes.ULONG,
+        wintypes.ULONG,
+    ]
+    send_mail.restype = wintypes.ULONG
+    return int(send_mail(0, 0, ctypes.byref(message), MAPI_DIALOG, 0))
 
 
 def _ask(prompt: str) -> bool:
@@ -227,11 +388,12 @@ def _ask(prompt: str) -> bool:
         print("请输入 Y 或 N。")
 
 
-def _write_result(environment: dict, code: int, checks: dict) -> Path:
+def _write_result(environment: dict, mode: str, code: int, checks: dict) -> Path:
     passed = code in {0, 1} and all(checks.values())
     lines = [
         "SubSentry Foxmail Simple MAPI兼容性测试",
         f"测试结论：{'通过' if passed else '未通过'}",
+        f"调用模式：{mode}",
         f"MAPI返回：{code} - {_result_label(code)}",
         "",
         "环境信息：",
@@ -257,9 +419,16 @@ def main() -> int:
     parser.add_argument(
         "--diagnose-only", action="store_true", help="只输出环境信息，不打开草稿"
     )
+    parser.add_argument(
+        "--mode",
+        choices=("ansi", "unicode"),
+        default="ansi",
+        help="MAPI调用模式；默认使用兼容旧客户端的ANSI模式",
+    )
     args = parser.parse_args()
 
     environment = collect_environment()
+    environment["test_mode"] = args.mode
     print("=== 环境检查 ===")
     print(json.dumps(environment, ensure_ascii=False, indent=2))
 
@@ -274,7 +443,7 @@ def main() -> int:
         print("如果测试打开了其他邮件软件，请先在Windows默认应用中选择Foxmail。")
 
     print("\n=== 测试说明 ===")
-    print("程序将请求Windows默认邮件客户端打开一封测试草稿。")
+    print(f"程序将使用{args.mode.upper()} Simple MAPI请求打开一封测试草稿。")
     print("收件人是保留测试域 example.invalid，不会使用真实邮箱。")
     print("请勿点击发送。检查标题、正文、收件人和附件后，直接关闭草稿窗口。")
     if input("\n输入 Y 开始测试，输入其他内容取消：").strip().lower() != "y":
@@ -285,7 +454,10 @@ def main() -> int:
     print(f"\n测试附件：{attachment}")
     print("正在调用Windows Simple MAPI，请观察Foxmail是否打开写信窗口……")
     try:
-        code = open_mapi_draft(attachment)
+        if args.mode == "ansi":
+            code = open_mapi_draft_ansi(attachment)
+        else:
+            code = open_mapi_draft_unicode(attachment)
     except Exception as exc:
         print(f"\n[ERROR] 调用失败：{exc}")
         code = -1
@@ -299,7 +471,7 @@ def main() -> int:
         "测试收件人正确": _ask("收件人是否为 test@example.invalid"),
         "中文测试附件存在": _ask(f"是否看到附件 {ATTACHMENT_NAME}"),
     }
-    result_path = _write_result(environment, code, checks)
+    result_path = _write_result(environment, args.mode, code, checks)
     passed = code in {0, 1} and all(checks.values())
 
     print("\n=== 测试结果 ===")

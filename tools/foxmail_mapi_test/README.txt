@@ -4,7 +4,8 @@ SubSentry Foxmail兼容性测试
 用途
 ----
 测试值班机上的Foxmail能否被SubSentry调用，并打开一封带有中文标题、
-中文正文、测试收件人和附件的邮件草稿。
+中文正文、测试收件人和附件的邮件草稿。r2默认使用兼容旧邮件客户端的
+ANSI Simple MAPI，并记录Foxmail所登记的MAPI DLL路径和位数。
 
 本测试使用Python标准库和Windows自带的Simple MAPI接口，不联网、
 不安装软件，也不需要额外下载Python依赖。
@@ -29,6 +30,7 @@ SubSentry Foxmail兼容性测试
 - 程序强制要求显示写信窗口，不会后台静默发送。
 - 程序不会读取或保存Foxmail账号、密码和邮件内容。
 - 测试不会修改SubSentry的槽路表和故障记录。
+- 程序只读取默认客户端注册信息，不修改注册表。
 
 结果
 ----
