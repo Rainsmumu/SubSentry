@@ -88,13 +88,17 @@ def build_reports(
         "传报内容：\n"
         f"{dt.hour}时{dt.minute:02d}分，{cable_name}海缆{segment}段中断。"
     )
-    first_email = (
+    first_email_subject = (
+        f"{month_day}{cable_name}海缆{segment}段（{route_desc}）中断"
+    )
+    first_email_body = (
         f"经与{landing}登陆站确认，{month_day}{hhmm}，"
         f"{cable_name}海缆{segment}段（{route_desc}）中断，"
         f"影响{direction}方向业务电路，具体清单整理中。"
     )
+    first_email = f"标题：{first_email_subject}\n\n正文：\n{first_email_body}"
     first_sms = (
-        f"网络运营重要情况传报（C1+故障）：{month_day}{hhmm}，"
+        f"网络运营重要情况传报（C1+故障）：{month_day}{hhmm} "
         f"{cable_name}海缆{segment}段{landing}出口发生故障，"
         f"业务影响正在统计中，故障位置待{noc}定位，已上报集团，"
         f"基础设施运营中心正在处理中。"
@@ -118,7 +122,11 @@ def build_reports(
         f"{month_day}，{cable_name}海缆{segment}段中断，经{noc}定位，"
         f"断点距离{landing}登陆站{distance}公里。"
     )
-    breakpoint_sms = f"网络运营重要情况补充传报（C1+故障）：{breakpoint_email}"
+    breakpoint_sms = (
+        f"网络运营重要情况补充传报（C1+故障）：{month_day} "
+        f"{cable_name}海缆{segment}段中断，经{noc}定位，"
+        f"断点距离{landing}登陆站{distance}公里。"
+    )
 
     repair_fields = fields["repair_plan_report"]
     repair_start = _full_date(repair_fields.get("repair_start_date", ""))
@@ -128,7 +136,7 @@ def build_reports(
         f"预计{expected_restore}修复。"
     )
     repair_sms = (
-        f"网络运营重要情况补充传报（C1+故障）：{month_day}，"
+        f"网络运营重要情况补充传报（C1+故障）：{month_day} "
         f"{cable_name}海缆{segment}段（{route_desc}）方向中断，计划于"
         f"{repair_start}开始维修，预计{expected_restore}修复。"
     )
@@ -139,7 +147,11 @@ def build_reports(
         f"{month_day}，{cable_name}海缆{segment}段（{route_desc}）方向中断，"
         f"经{landing}登陆站确认，已于{actual_restore}修复。"
     )
-    final_sms = f"网络运营重要情况补充传报（C1+故障）：{final_email}"
+    final_sms = (
+        f"网络运营重要情况补充传报（C1+故障）：{month_day} "
+        f"{cable_name}海缆{segment}段（{route_desc}）方向中断，"
+        f"经{landing}登陆站确认，已于{actual_restore}修复。"
+    )
 
     stages = {
         "first_report": {"phone": first_phone, "email": first_email, "sms": first_sms},

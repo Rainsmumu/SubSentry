@@ -577,7 +577,12 @@
           </div>
           <div>
             <label class="text-xs t-dim mb-1 block">中断时间 *</label>
-            <input x-model="form.fault_time" type="datetime-local" class="input input-uniform w-full">
+            <div class="flex gap-2">
+              <input x-model="form.fault_time" type="datetime-local"
+                     class="input input-uniform flex-1 min-w-0">
+              <button type="button" class="btn-ghost shrink-0"
+                      @click="form.fault_time = nowLocalInputValue()">此刻</button>
+            </div>
           </div>
           <button class="btn-primary w-full" :disabled="loading || !form.cable_id || !form.fault_time"
                   @click="submitFault()">

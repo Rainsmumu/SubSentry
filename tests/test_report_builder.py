@@ -42,11 +42,27 @@ class ReportBuilderTests(unittest.TestCase):
         self.assertIn("集团监控：01066073715", phone)
         self.assertIn("三级经理邹斌：18601723639", phone)
         self.assertIn("传报内容", phone)
+        first_email = reports["stages"]["first_report"]["email"]
+        self.assertIn("标题：8月30日TPE海缆S4段（崇明-淡水）中断", first_email)
+        self.assertIn("正文：\n经与崇明登陆站确认", first_email)
         self.assertIn("中华电信：上海-美国 2*10G", reports["stages"]["impact_report"]["wechat"])
         self.assertIn("3条客户专线", reports["stages"]["impact_report"]["wechat"])
         self.assertIn("126.4公里", reports["stages"]["breakpoint_report"]["email"])
         self.assertIn("2026年9月2日", reports["stages"]["repair_plan_report"]["sms"])
         self.assertIn("2026年9月3日修复", reports["stages"]["final_report"]["email"])
+
+        sms_reports = (
+            reports["stages"]["first_report"]["sms"],
+            reports["stages"]["breakpoint_report"]["sms"],
+            reports["stages"]["repair_plan_report"]["sms"],
+            reports["stages"]["final_report"]["sms"],
+        )
+        self.assertIn("8月30日14:37 TPE", sms_reports[0])
+        for sms in sms_reports[1:]:
+            self.assertIn("8月30日 TPE", sms)
+        for sms in sms_reports:
+            self.assertNotIn("8月30日，", sms)
+        self.assertNotIn("8月30日14:37，", sms_reports[0])
 
 
 if __name__ == "__main__":
